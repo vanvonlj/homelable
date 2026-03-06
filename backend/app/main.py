@@ -5,13 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import auth, canvas, edges, nodes, scan, status
 from app.core.config import settings
+from app.core.scheduler import start_scheduler, stop_scheduler
 from app.db.database import init_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    start_scheduler()
     yield
+    stop_scheduler()
 
 
 app = FastAPI(

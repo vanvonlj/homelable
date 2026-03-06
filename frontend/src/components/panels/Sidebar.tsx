@@ -1,7 +1,9 @@
-import { useState } from 'react'
-import { Network, Plus, Save, ScanLine, ChevronLeft, ChevronRight, LayoutDashboard, Clock, EyeOff } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Network, Plus, Save, ScanLine, ChevronLeft, ChevronRight, LayoutDashboard, Clock, EyeOff, Check, EyeOff as Hide, Trash2, RefreshCw, Loader2 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCanvasStore } from '@/stores/canvasStore'
+import { scanApi } from '@/api/client'
+import { toast } from 'sonner'
 
 type SidebarView = 'canvas' | 'pending' | 'hidden' | 'history'
 
@@ -11,6 +13,28 @@ const VIEWS = [
   { id: 'hidden' as SidebarView, icon: EyeOff, label: 'Hidden Devices' },
   { id: 'history' as SidebarView, icon: Clock, label: 'Scan History' },
 ]
+
+interface PendingDevice {
+  id: string
+  ip: string
+  mac: string | null
+  hostname: string | null
+  os: string | null
+  services: unknown[]
+  suggested_type: string | null
+  status: string
+  discovered_at: string
+}
+
+interface ScanRun {
+  id: string
+  status: string
+  ranges: string[]
+  devices_found: number
+  started_at: string
+  finished_at: string | null
+  error: string | null
+}
 
 interface SidebarProps {
   onAddNode: () => void
@@ -25,6 +49,16 @@ export function Sidebar({ onAddNode, onScan, onSave }: SidebarProps) {
 
   const onlineCount = nodes.filter((n) => n.data.status === 'online').length
   const offlineCount = nodes.filter((n) => n.data.status === 'offline').length
+
+  const handleScan = useCallback(async () => {
+    try {
+      await scanApi.trigger()
+      toast.success('Network scan started')
+      onScan()
+    } catch {
+      toast.error('Failed to trigger scan')
+    }
+  }, [onScan])
 
   return (
     <aside
@@ -50,7 +84,7 @@ export function Sidebar({ onAddNode, onScan, onSave }: SidebarProps) {
       </div>
 
       {/* Views */}
-      <nav className="flex flex-col gap-0.5 p-2 flex-1">
+      <nav className="flex flex-col gap-0.5 p-2">
         {VIEWS.map(({ id, icon: Icon, label }) => (
           <SidebarItem
             key={id}
@@ -63,7 +97,21 @@ export function Sidebar({ onAddNode, onScan, onSave }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Stats */}
+      {/* View content (only when expanded) */}
+      {!collapsed && activeView !== 'canvas' && (
+        <div className="flex-1 min-h-0 overflow-y-auto border-t border-border">
+          {activeView === 'pending' && <PendingDevicesPanel />}
+          {activeView === 'hidden' && <HiddenDevicesPanel />}
+          {activeView === 'history' && <ScanHistoryPanel />}
+        </div>
+      )}
+
+      {/* Stats (only on canvas view) */}
+      {!collapsed && activeView === 'canvas' && (
+        <div className="flex-1" />
+      )}
+
+      {/* Stats footer */}
       {!collapsed && (
         <div className="px-3 py-2 border-t border-border text-xs text-muted-foreground space-y-0.5">
           <div className="flex justify-between">
@@ -84,7 +132,7 @@ export function Sidebar({ onAddNode, onScan, onSave }: SidebarProps) {
       {/* Actions */}
       <div className="flex flex-col gap-0.5 p-2 border-t border-border">
         <SidebarItem icon={Plus} label="Add Node" collapsed={collapsed} onClick={onAddNode} />
-        <SidebarItem icon={ScanLine} label="Scan Network" collapsed={collapsed} onClick={onScan} />
+        <SidebarItem icon={ScanLine} label="Scan Network" collapsed={collapsed} onClick={handleScan} />
         <SidebarItem
           icon={Save}
           label="Save Canvas"
@@ -95,6 +143,227 @@ export function Sidebar({ onAddNode, onScan, onSave }: SidebarProps) {
         />
       </div>
     </aside>
+  )
+}
+
+function PendingDevicesPanel() {
+  const [devices, setDevices] = useState<PendingDevice[]>([])
+  const [loading, setLoading] = useState(false)
+  const { addNode } = useCanvasStore()
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await scanApi.pending()
+      setDevices(res.data)
+    } catch {
+      toast.error('Failed to load pending devices')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Load on mount
+  useState(() => { load() })
+
+  const handleApprove = async (device: PendingDevice) => {
+    try {
+      const nodeData = {
+        label: device.hostname ?? device.ip,
+        type: device.suggested_type ?? 'generic',
+        ip: device.ip,
+        hostname: device.hostname ?? undefined,
+        status: 'unknown',
+        services: device.services ?? [],
+      }
+      const res = await scanApi.approve(device.id, nodeData)
+      const nodeId = res.data.node_id
+      addNode({
+        id: nodeId,
+        type: nodeData.type,
+        position: { x: 400, y: 300 },
+        data: { ...nodeData, status: 'unknown' as const },
+      })
+      toast.success(`Approved ${nodeData.label}`)
+      setDevices((prev) => prev.filter((d) => d.id !== device.id))
+    } catch {
+      toast.error('Failed to approve device')
+    }
+  }
+
+  const handleHide = async (id: string) => {
+    try {
+      await scanApi.hide(id)
+      setDevices((prev) => prev.filter((d) => d.id !== id))
+      toast.success('Device hidden')
+    } catch {
+      toast.error('Failed to hide device')
+    }
+  }
+
+  const handleIgnore = async (id: string) => {
+    try {
+      await scanApi.ignore(id)
+      setDevices((prev) => prev.filter((d) => d.id !== id))
+    } catch {
+      toast.error('Failed to ignore device')
+    }
+  }
+
+  return (
+    <div className="p-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Pending</span>
+        <button onClick={load} className="text-muted-foreground hover:text-foreground p-0.5">
+          <RefreshCw size={12} />
+        </button>
+      </div>
+      {loading && <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto my-4" />}
+      {!loading && devices.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-4">No pending devices</p>
+      )}
+      {devices.map((d) => (
+        <div key={d.id} className="mb-2 p-2 rounded-md bg-[#21262d] text-xs">
+          <div className="font-mono text-foreground">{d.ip}</div>
+          {d.hostname && <div className="text-muted-foreground truncate">{d.hostname}</div>}
+          {d.os && <div className="text-muted-foreground truncate text-[10px]">{d.os}</div>}
+          <div className="flex gap-1 mt-1.5">
+            <ActionButton icon={Check} label="Approve" color="green" onClick={() => handleApprove(d)} />
+            <ActionButton icon={Hide} label="Hide" onClick={() => handleHide(d.id)} />
+            <ActionButton icon={Trash2} label="Ignore" color="red" onClick={() => handleIgnore(d.id)} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function HiddenDevicesPanel() {
+  const [devices, setDevices] = useState<PendingDevice[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await scanApi.hidden()
+      setDevices(res.data)
+    } catch {
+      toast.error('Failed to load hidden devices')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useState(() => { load() })
+
+  const handleIgnore = async (id: string) => {
+    try {
+      await scanApi.ignore(id)
+      setDevices((prev) => prev.filter((d) => d.id !== id))
+    } catch {
+      toast.error('Failed to remove device')
+    }
+  }
+
+  return (
+    <div className="p-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Hidden</span>
+        <button onClick={load} className="text-muted-foreground hover:text-foreground p-0.5">
+          <RefreshCw size={12} />
+        </button>
+      </div>
+      {loading && <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto my-4" />}
+      {!loading && devices.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-4">No hidden devices</p>
+      )}
+      {devices.map((d) => (
+        <div key={d.id} className="mb-2 p-2 rounded-md bg-[#21262d] text-xs">
+          <div className="font-mono text-foreground">{d.ip}</div>
+          {d.hostname && <div className="text-muted-foreground truncate">{d.hostname}</div>}
+          <div className="flex gap-1 mt-1.5">
+            <ActionButton icon={Trash2} label="Remove" color="red" onClick={() => handleIgnore(d.id)} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ScanHistoryPanel() {
+  const [runs, setRuns] = useState<ScanRun[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await scanApi.runs()
+      setRuns(res.data)
+    } catch {
+      toast.error('Failed to load scan history')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useState(() => { load() })
+
+  const statusColor = (s: string) =>
+    s === 'completed' ? '#39d353' : s === 'running' ? '#e3b341' : s === 'failed' ? '#f85149' : '#8b949e'
+
+  return (
+    <div className="p-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">History</span>
+        <button onClick={load} className="text-muted-foreground hover:text-foreground p-0.5">
+          <RefreshCw size={12} />
+        </button>
+      </div>
+      {loading && <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto my-4" />}
+      {!loading && runs.length === 0 && (
+        <p className="text-xs text-muted-foreground text-center py-4">No scans yet</p>
+      )}
+      {runs.map((r) => (
+        <div key={r.id} className="mb-2 p-2 rounded-md bg-[#21262d] text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: statusColor(r.status) }} />
+            <span className="font-mono text-foreground capitalize">{r.status}</span>
+            <span className="ml-auto text-muted-foreground font-mono">{r.devices_found} found</span>
+          </div>
+          <div className="text-muted-foreground text-[10px] mt-0.5">
+            {new Date(r.started_at).toLocaleString()}
+          </div>
+          {r.ranges.length > 0 && (
+            <div className="text-[#8b949e] text-[10px] font-mono truncate">{r.ranges.join(', ')}</div>
+          )}
+          {r.error && <div className="text-[#f85149] text-[10px] mt-0.5 truncate">{r.error}</div>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+interface ActionButtonProps {
+  icon: React.ElementType
+  label: string
+  color?: 'green' | 'red'
+  onClick: () => void
+}
+
+function ActionButton({ icon: Icon, label, color, onClick }: ActionButtonProps) {
+  const colorClass =
+    color === 'green' ? 'text-[#39d353] hover:bg-[#39d353]/10' :
+    color === 'red' ? 'text-[#f85149] hover:bg-[#f85149]/10' :
+    'text-muted-foreground hover:text-foreground hover:bg-[#30363d]'
+  return (
+    <Tooltip>
+      <TooltipTrigger>
+        <button onClick={onClick} className={`p-1 rounded ${colorClass} transition-colors`}>
+          <Icon size={11} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   )
 }
 

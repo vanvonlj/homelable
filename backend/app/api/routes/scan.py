@@ -1,22 +1,54 @@
-from fastapi import APIRouter, Depends
+import logging
+
+import yaml
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.db.database import get_db
-from app.db.models import PendingDevice, ScanRun
+from app.core.config import settings
+from app.db.database import AsyncSessionLocal, get_db
+from app.db.models import Node, PendingDevice, ScanRun
+from app.schemas.nodes import NodeCreate
 from app.schemas.scan import PendingDeviceResponse, ScanRunResponse
+from app.services.scanner import run_scan
 
+
+class ScanConfig(BaseModel):
+    ranges: list[str]
+    interval_seconds: int
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _load_ranges() -> list[str]:
+    try:
+        with open(settings.config_path) as f:
+            cfg = yaml.safe_load(f)
+        return cfg.get("scanner", {}).get("ranges", [])
+    except Exception:
+        return []
+
+
+async def _background_scan(run_id: str, ranges: list[str]) -> None:
+    async with AsyncSessionLocal() as db:
+        await run_scan(ranges, db, run_id)
+
+
 @router.post("/trigger", response_model=ScanRunResponse)
-async def trigger_scan(db: AsyncSession = Depends(get_db), _: str = Depends(get_current_user)):
-    run = ScanRun(status="running", ranges=[])
+async def trigger_scan(
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_user),
+):
+    ranges = _load_ranges()
+    run = ScanRun(status="running", ranges=ranges)
     db.add(run)
     await db.commit()
     await db.refresh(run)
-    # TODO: launch scanner in background thread
+    background_tasks.add_task(_background_scan, run.id, ranges)
     return run
 
 
@@ -26,13 +58,27 @@ async def list_pending(db: AsyncSession = Depends(get_db), _: str = Depends(get_
     return result.scalars().all()
 
 
-@router.post("/pending/{device_id}/approve")
-async def approve_device(device_id: str, db: AsyncSession = Depends(get_db), _: str = Depends(get_current_user)):
+@router.get("/hidden", response_model=list[PendingDeviceResponse])
+async def list_hidden(db: AsyncSession = Depends(get_db), _: str = Depends(get_current_user)):
+    result = await db.execute(select(PendingDevice).where(PendingDevice.status == "hidden"))
+    return result.scalars().all()
+
+
+@router.post("/pending/{device_id}/approve", response_model=dict)
+async def approve_device(
+    device_id: str,
+    node_data: NodeCreate,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_user),
+):
     device = await db.get(PendingDevice, device_id)
     if device:
         device.status = "approved"
+        node = Node(**node_data.model_dump())
+        db.add(node)
         await db.commit()
-    return {"approved": True}
+        return {"approved": True, "node_id": node.id}
+    return {"approved": False}
 
 
 @router.post("/pending/{device_id}/hide")
@@ -42,3 +88,44 @@ async def hide_device(device_id: str, db: AsyncSession = Depends(get_db), _: str
         device.status = "hidden"
         await db.commit()
     return {"hidden": True}
+
+
+@router.post("/pending/{device_id}/ignore")
+async def ignore_device(device_id: str, db: AsyncSession = Depends(get_db), _: str = Depends(get_current_user)):
+    device = await db.get(PendingDevice, device_id)
+    if device:
+        await db.delete(device)
+        await db.commit()
+    return {"ignored": True}
+
+
+@router.get("/runs", response_model=list[ScanRunResponse])
+async def list_runs(db: AsyncSession = Depends(get_db), _: str = Depends(get_current_user)):
+    result = await db.execute(select(ScanRun).order_by(ScanRun.started_at.desc()).limit(20))
+    return result.scalars().all()
+
+
+@router.get("/config", response_model=ScanConfig)
+async def get_scan_config(_: str = Depends(get_current_user)):
+    try:
+        with open(settings.config_path) as f:
+            cfg = yaml.safe_load(f)
+        ranges = cfg.get("scanner", {}).get("ranges", [])
+        interval = int(cfg.get("status_checker", {}).get("interval_seconds", 60))
+        return ScanConfig(ranges=ranges, interval_seconds=interval)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/config", response_model=ScanConfig)
+async def update_scan_config(payload: ScanConfig, _: str = Depends(get_current_user)):
+    try:
+        with open(settings.config_path) as f:
+            cfg = yaml.safe_load(f) or {}
+        cfg.setdefault("scanner", {})["ranges"] = payload.ranges
+        cfg.setdefault("status_checker", {})["interval_seconds"] = payload.interval_seconds
+        with open(settings.config_path, "w") as f:
+            yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True)
+        return payload
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

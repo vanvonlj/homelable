@@ -1,6 +1,8 @@
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { ReactFlowProvider, type Connection } from '@xyflow/react'
 import { type Node } from '@xyflow/react'
+import { applyDagreLayout } from '@/utils/layout'
+import { exportToPng } from '@/utils/export'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
@@ -11,19 +13,25 @@ import { DetailPanel } from '@/components/panels/DetailPanel'
 import { LoginPage } from '@/components/LoginPage'
 import { NodeModal } from '@/components/modals/NodeModal'
 import { EdgeModal } from '@/components/modals/EdgeModal'
+import { ScanConfigModal } from '@/components/modals/ScanConfigModal'
 import { useCanvasStore } from '@/stores/canvasStore'
 import { useAuthStore } from '@/stores/authStore'
 import { canvasApi } from '@/api/client'
 import { demoNodes, demoEdges } from '@/utils/demoData'
+import { useStatusPolling } from '@/hooks/useStatusPolling'
 import type { NodeData, EdgeData } from '@/types'
 
 export default function App() {
-  const { loadCanvas, markSaved, selectedNodeId, addNode, updateNode, onConnect, nodes } = useCanvasStore()
+  const { loadCanvas, markSaved, selectedNodeId, addNode, updateNode, onConnect, nodes, edges } = useCanvasStore()
+  const canvasRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated } = useAuthStore()
+
+  useStatusPolling()
 
   const [addNodeOpen, setAddNodeOpen] = useState(false)
   const [editNodeId, setEditNodeId] = useState<string | null>(null)
   const [pendingConnection, setPendingConnection] = useState<Connection | null>(null)
+  const [scanConfigOpen, setScanConfigOpen] = useState(false)
 
   // Declare handleSave before the Ctrl+S effect so it is in scope
   const handleSave = useCallback(async () => {
@@ -104,6 +112,23 @@ export default function App() {
     setEditNodeId(null)
   }, [editNodeId, updateNode])
 
+  const handleAutoLayout = useCallback(() => {
+    const laid = applyDagreLayout(nodes, edges)
+    loadCanvas(laid, edges)
+    toast.success('Canvas auto-arranged')
+  }, [nodes, edges, loadCanvas])
+
+  const handleExport = useCallback(async () => {
+    const el = canvasRef.current?.querySelector<HTMLElement>('.react-flow')
+    if (!el) { toast.error('Canvas not ready'); return }
+    try {
+      await exportToPng(el)
+      toast.success('Exported as PNG')
+    } catch {
+      toast.error('Export failed')
+    }
+  }, [])
+
   const handleEdgeConnect = useCallback((connection: Connection) => {
     setPendingConnection(connection)
   }, [])
@@ -124,17 +149,19 @@ export default function App() {
         <div className="flex h-screen w-screen overflow-hidden bg-[#0d1117]">
           <Sidebar
             onAddNode={() => setAddNodeOpen(true)}
-            onScan={() => toast.info('Network scan not yet implemented')}
+            onScan={() => setScanConfigOpen(true)}
             onSave={handleSave}
           />
           <div className="flex flex-col flex-1 min-w-0">
             <Toolbar
               onSave={handleSave}
-              onAutoLayout={() => toast.info('Auto-layout not yet implemented')}
-              onExport={() => toast.info('Export not yet implemented')}
+              onAutoLayout={handleAutoLayout}
+              onExport={handleExport}
             />
             <div className="flex flex-1 min-h-0">
-              <CanvasContainer onConnect={handleEdgeConnect} />
+              <div ref={canvasRef} className="flex-1 min-w-0 h-full">
+                <CanvasContainer onConnect={handleEdgeConnect} />
+              </div>
               {selectedNodeId && <DetailPanel onEdit={handleEditNode} />}
             </div>
           </div>
@@ -161,6 +188,12 @@ export default function App() {
           open={!!pendingConnection}
           onClose={() => setPendingConnection(null)}
           onSubmit={handleEdgeConfirm}
+        />
+
+        <ScanConfigModal
+          open={scanConfigOpen}
+          onClose={() => setScanConfigOpen(false)}
+          onScanNow={() => toast.success('Scan triggered')}
         />
 
         <Toaster theme="dark" position="bottom-right" />

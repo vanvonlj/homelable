@@ -40,3 +40,15 @@ export const edgesApi = {
   create: (data: object) => api.post('/edges', data),
   delete: (id: string) => api.delete(`/edges/${id}`),
 }
+
+export const scanApi = {
+  trigger: () => api.post('/scan/trigger'),
+  pending: () => api.get('/scan/pending'),
+  hidden: () => api.get('/scan/hidden'),
+  runs: () => api.get('/scan/runs'),
+  approve: (id: string, nodeData: object) => api.post(`/scan/pending/${id}/approve`, nodeData),
+  hide: (id: string) => api.post(`/scan/pending/${id}/hide`),
+  ignore: (id: string) => api.post(`/scan/pending/${id}/ignore`),
+  getConfig: () => api.get<{ ranges: string[]; interval_seconds: number }>('/scan/config'),
+  saveConfig: (data: { ranges: string[]; interval_seconds: number }) => api.post('/scan/config', data),
+}
