@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { RotateCcw } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { NODE_TYPE_LABELS, type NodeData, type NodeType, type CheckMethod } from '@/types'
+import { resolveNodeColors } from '@/utils/nodeColors'
 
 const NODE_TYPES = Object.entries(NODE_TYPE_LABELS) as [NodeType, string][]
 
@@ -19,6 +21,7 @@ const DEFAULT_DATA: Partial<NodeData> = {
   check_method: 'ping',
   services: [],
   container_mode: true,
+  custom_colors: undefined,
 }
 
 interface NodeModalProps {
@@ -176,6 +179,50 @@ export function NodeModal({ open, onClose, onSubmit, initial, title = 'Add Node'
                 </button>
               </div>
             )}
+
+            {/* Appearance */}
+            <div className="flex flex-col gap-2 col-span-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Appearance</Label>
+                {form.custom_colors && (
+                  <button
+                    type="button"
+                    onClick={() => set('custom_colors', undefined)}
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                  >
+                    <RotateCcw size={10} /> Reset to defaults
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(['border', 'background', 'icon'] as const).map((key) => {
+                  const resolved = resolveNodeColors({ type: form.type ?? 'generic', custom_colors: form.custom_colors })
+                  const currentValue = resolved[key]
+                  const isCustom = !!form.custom_colors?.[key]
+                  return (
+                    <div key={key} className="flex flex-col gap-1 items-center">
+                      <label
+                        className="relative w-full h-7 rounded-md border cursor-pointer overflow-hidden transition-all"
+                        style={{ borderColor: isCustom ? currentValue : '#30363d' }}
+                        title={`${key.charAt(0).toUpperCase() + key.slice(1)}: ${currentValue}`}
+                      >
+                        <input
+                          type="color"
+                          value={currentValue}
+                          onChange={(e) => set('custom_colors', { ...form.custom_colors, [key]: e.target.value })}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+                        />
+                        <div className="w-full h-full rounded-sm" style={{ background: currentValue }} />
+                      </label>
+                      <span className="text-[9px] text-muted-foreground/60 capitalize">{key}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              {!form.custom_colors && (
+                <p className="text-[10px] text-muted-foreground/50">Using default colors for {NODE_TYPE_LABELS[form.type ?? 'generic']}. Click a swatch to customize.</p>
+              )}
+            </div>
 
             {/* Notes */}
             <div className="flex flex-col gap-1.5 col-span-2">

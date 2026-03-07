@@ -1,6 +1,7 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react'
 import { type LucideIcon } from 'lucide-react'
 import type { NodeData, NodeStatus } from '@/types'
+import { resolveNodeColors } from '@/utils/nodeColors'
 
 const STATUS_COLORS: Record<NodeStatus, string> = {
   online: '#39d353',
@@ -11,10 +12,10 @@ const STATUS_COLORS: Record<NodeStatus, string> = {
 
 interface BaseNodeProps extends NodeProps<Node<NodeData>> {
   icon: LucideIcon
-  glowColor?: string
 }
 
-export function BaseNode({ data, selected, icon: Icon, glowColor = '#00d4ff' }: BaseNodeProps) {
+export function BaseNode({ data, selected, icon: Icon }: BaseNodeProps) {
+  const colors = resolveNodeColors(data)
   const statusColor = STATUS_COLORS[data.status]
   const isOnline = data.status === 'online'
 
@@ -22,12 +23,12 @@ export function BaseNode({ data, selected, icon: Icon, glowColor = '#00d4ff' }: 
     <div
       className="relative flex flex-row items-center gap-2.5 px-2.5 py-2 rounded-lg border transition-all duration-200"
       style={{
-        background: '#21262d',
-        borderColor: selected ? glowColor : '#30363d',
+        background: colors.background,
+        borderColor: selected ? colors.border : '#30363d',
         boxShadow: isOnline
-          ? `0 0 10px ${glowColor}2e, 0 0 3px ${glowColor}1a`
+          ? `0 0 10px ${colors.border}2e, 0 0 3px ${colors.border}1a`
           : selected
-          ? `0 0 8px ${glowColor}44`
+          ? `0 0 8px ${colors.border}44`
           : 'none',
         opacity: data.status === 'offline' ? 0.55 : 1,
         minWidth: 140,
@@ -38,7 +39,7 @@ export function BaseNode({ data, selected, icon: Icon, glowColor = '#00d4ff' }: 
       {/* Icon */}
       <div
         className="flex items-center justify-center w-7 h-7 rounded-md shrink-0"
-        style={{ color: isOnline ? glowColor : '#8b949e', background: '#161b22' }}
+        style={{ color: isOnline ? colors.icon : '#8b949e', background: '#161b22' }}
       >
         <Icon size={15} />
       </div>

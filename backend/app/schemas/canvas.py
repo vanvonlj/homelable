@@ -21,6 +21,7 @@ class NodeSave(BaseModel):
     notes: str | None = None
     parent_id: str | None = None
     container_mode: bool = False
+    custom_colors: dict | None = None
     pos_x: float = 0
     pos_y: float = 0
 

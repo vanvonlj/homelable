@@ -41,6 +41,7 @@ export interface NodeData extends Record<string, unknown> {
   notes?: string
   parent_id?: string
   container_mode?: boolean
+  custom_colors?: { border?: string; background?: string; icon?: string }
 }
 
 export interface EdgeData extends Record<string, unknown> {

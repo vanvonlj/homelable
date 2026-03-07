@@ -20,9 +20,11 @@ class Base(DeclarativeBase):
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Add container_mode column if not present (existing databases)
+        # Add columns introduced after initial schema (idempotent)
         with suppress(Exception):
             await conn.exec_driver_sql("ALTER TABLE nodes ADD COLUMN container_mode BOOLEAN NOT NULL DEFAULT 0")
+        with suppress(Exception):
+            await conn.exec_driver_sql("ALTER TABLE nodes ADD COLUMN custom_colors JSON")
 
 
 async def get_db():
