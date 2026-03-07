@@ -1,4 +1,5 @@
 """Network scanner: ARP sweep + nmap service detection."""
+import asyncio
 import logging
 import socket
 from datetime import UTC, datetime
@@ -89,17 +90,24 @@ def _mock_scan(target: str) -> list[dict[str, Any]]:
 
 async def run_scan(ranges: list[str], db: AsyncSession, run_id: str) -> None:
     """Execute scan for given CIDR ranges and populate pending_devices."""
+    # Avoid circular import
+    from sqlalchemy import select
+
+    from app.api.routes.status import broadcast_scan_update
+
     devices_found = 0
     try:
         for cidr in ranges:
-            hosts = _nmap_scan(cidr)
+            # Run nmap in a thread pool — does not block the event loop
+            hosts = await asyncio.to_thread(_nmap_scan, cidr)
+
             for host in hosts:
                 services = fingerprint_ports(host["open_ports"])
                 suggested_type = suggest_node_type(host["open_ports"])
 
-                # Skip if already pending or already a node (by IP)
+                # Skip if already pending (by IP)
                 existing = await db.execute(
-                    __import__("sqlalchemy", fromlist=["select"]).select(PendingDevice).where(
+                    select(PendingDevice).where(
                         PendingDevice.ip == host["ip"],
                         PendingDevice.status == "pending",
                     )
@@ -119,9 +127,19 @@ async def run_scan(ranges: list[str], db: AsyncSession, run_id: str) -> None:
                 db.add(device)
                 devices_found += 1
 
-        await db.commit()
+                # Commit immediately so the device is visible right away
+                await db.commit()
 
-        # Update scan run
+                # Update running count on the scan run record
+                run = await db.get(ScanRun, run_id)
+                if run:
+                    run.devices_found = devices_found
+                    await db.commit()
+
+                # Push WS event so the frontend refreshes pending panel
+                await broadcast_scan_update(run_id=run_id, devices_found=devices_found)
+
+        # Mark scan as done
         run = await db.get(ScanRun, run_id)
         if run:
             run.status = "done"

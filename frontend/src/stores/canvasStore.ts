@@ -16,6 +16,7 @@ interface CanvasState {
   edges: Edge<EdgeData>[]
   hasUnsavedChanges: boolean
   selectedNodeId: string | null
+  scanEventTs: number
 
   onNodesChange: (changes: NodeChange<Node<NodeData>>[]) => void
   onEdgesChange: (changes: EdgeChange<Edge<EdgeData>>[]) => void
@@ -29,6 +30,7 @@ interface CanvasState {
   setProxmoxContainerMode: (proxmoxId: string, enabled: boolean) => void
   markSaved: () => void
   loadCanvas: (nodes: Node<NodeData>[], edges: Edge<EdgeData>[]) => void
+  notifyScanDeviceFound: () => void
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
@@ -36,6 +38,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   edges: [],
   hasUnsavedChanges: false,
   selectedNodeId: null,
+  scanEventTs: 0,
 
   onNodesChange: (changes) =>
     set((state) => ({
@@ -125,6 +128,8 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     }),
 
   markSaved: () => set({ hasUnsavedChanges: false }),
+
+  notifyScanDeviceFound: () => set({ scanEventTs: Date.now() }),
 
   loadCanvas: (nodes, edges) => {
     // React Flow requires parents before children in the array

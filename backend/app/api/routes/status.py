@@ -19,15 +19,27 @@ async def ws_status(websocket: WebSocket) -> None:
         _connections.remove(websocket)
 
 
-async def broadcast_status(node_id: str, status: str, checked_at: str, response_time_ms: int | None = None) -> None:
-    payload = json.dumps({
-        "node_id": node_id,
-        "status": status,
-        "checked_at": checked_at,
-        "response_time_ms": response_time_ms,
-    })
+async def _broadcast(payload: str) -> None:
     for conn in list(_connections):
         try:
             await conn.send_text(payload)
         except Exception:
             _connections.remove(conn)
+
+
+async def broadcast_status(node_id: str, status: str, checked_at: str, response_time_ms: int | None = None) -> None:
+    await _broadcast(json.dumps({
+        "type": "status",
+        "node_id": node_id,
+        "status": status,
+        "checked_at": checked_at,
+        "response_time_ms": response_time_ms,
+    }))
+
+
+async def broadcast_scan_update(run_id: str, devices_found: int) -> None:
+    await _broadcast(json.dumps({
+        "type": "scan_device_found",
+        "run_id": run_id,
+        "devices_found": devices_found,
+    }))

@@ -150,7 +150,7 @@ export function Sidebar({ onAddNode, onScan, onSave }: SidebarProps) {
 function PendingDevicesPanel() {
   const [devices, setDevices] = useState<PendingDevice[]>([])
   const [loading, setLoading] = useState(false)
-  const { addNode } = useCanvasStore()
+  const { addNode, scanEventTs } = useCanvasStore()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -165,7 +165,12 @@ function PendingDevicesPanel() {
   }, [])
 
   // Load on mount
-  useState(() => { load() })
+  useEffect(() => { load() }, [load])
+
+  // Auto-refresh when the backend pushes a scan_device_found event
+  useEffect(() => {
+    if (scanEventTs > 0) load()
+  }, [scanEventTs, load])
 
   const handleApprove = async (device: PendingDevice) => {
     try {
