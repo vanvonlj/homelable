@@ -1,4 +1,4 @@
-"""Per-node status checks: ping, http, https, tcp, ssh, prometheus, health."""
+"""Per-node status checks: ping, http, https, tcp, ssh, prometheus, health, none."""
 import asyncio
 import logging
 import socket
@@ -15,6 +15,9 @@ async def check_node(check_method: str, target: str | None, ip: str | None) -> d
     Run the appropriate check and return {status, response_time_ms}.
     status is one of: online, offline, unknown.
     """
+    if check_method == "none":
+        return {"status": "online", "response_time_ms": None}
+
     host = target or ip
     if not host:
         return {"status": "unknown", "response_time_ms": None}

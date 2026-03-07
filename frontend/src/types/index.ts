@@ -15,7 +15,7 @@ export type EdgeType = 'ethernet' | 'wifi' | 'iot' | 'vlan' | 'virtual'
 
 export type NodeStatus = 'online' | 'offline' | 'pending' | 'unknown'
 
-export type CheckMethod = 'ping' | 'http' | 'https' | 'tcp' | 'ssh' | 'prometheus' | 'health'
+export type CheckMethod = 'ping' | 'http' | 'https' | 'tcp' | 'ssh' | 'prometheus' | 'health' | 'none'
 
 export interface ServiceInfo {
   port: number

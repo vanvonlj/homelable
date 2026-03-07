@@ -11,7 +11,7 @@ import { ICON_REGISTRY, ICON_CATEGORIES } from '@/utils/nodeIcons'
 
 const NODE_TYPES = Object.entries(NODE_TYPE_LABELS) as [NodeType, string][]
 
-const CHECK_METHODS: CheckMethod[] = ['ping', 'http', 'https', 'tcp', 'ssh', 'prometheus', 'health']
+const CHECK_METHODS: CheckMethod[] = ['none', 'ping', 'http', 'https', 'tcp', 'ssh', 'prometheus', 'health']
 
 const DEFAULT_DATA: Partial<NodeData> = {
   type: 'server',
