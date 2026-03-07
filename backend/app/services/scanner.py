@@ -28,7 +28,7 @@ def _nmap_scan(target: str) -> list[dict]:
         nm.scan(hosts=target, arguments="-sV --open -T4 --host-timeout 30s")
     except Exception as exc:
         logger.error("nmap scan failed: %s", exc)
-        return []
+        raise RuntimeError(str(exc)) from exc
 
     hosts = []
     for host in nm.all_hosts():

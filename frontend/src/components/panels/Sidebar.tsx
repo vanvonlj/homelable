@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Network, Plus, Save, ScanLine, ChevronLeft, ChevronRight, LayoutDashboard, Clock, EyeOff, Check, EyeOff as Hide, Trash2, RefreshCw, Loader2 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCanvasStore } from '@/stores/canvasStore'
@@ -53,7 +53,8 @@ export function Sidebar({ onAddNode, onScan, onSave }: SidebarProps) {
   const handleScan = useCallback(async () => {
     try {
       await scanApi.trigger()
-      toast.success('Network scan started')
+      toast.success('Network scan started — check Scan History for results')
+      setActiveView('history')
       onScan()
     } catch {
       toast.error('Failed to trigger scan')
@@ -293,12 +294,23 @@ function HiddenDevicesPanel() {
 function ScanHistoryPanel() {
   const [runs, setRuns] = useState<ScanRun[]>([])
   const [loading, setLoading] = useState(false)
+  const prevRunsRef = useRef<ScanRun[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const res = await scanApi.runs()
-      setRuns(res.data)
+      const next: ScanRun[] = res.data
+
+      // Toast when a run transitions from running → error
+      for (const run of next) {
+        const prev = prevRunsRef.current.find((r) => r.id === run.id)
+        if (prev?.status === 'running' && run.status === 'error') {
+          toast.error(`Scan failed: ${run.error ?? 'unknown error'}`)
+        }
+      }
+      prevRunsRef.current = next
+      setRuns(next)
     } catch {
       toast.error('Failed to load scan history')
     } finally {
@@ -306,10 +318,19 @@ function ScanHistoryPanel() {
     }
   }, [])
 
-  useState(() => { load() })
+  // Initial load
+  useEffect(() => { load() }, [load])
+
+  // Auto-refresh every 3s while any run is still running
+  useEffect(() => {
+    const hasRunning = runs.some((r) => r.status === 'running')
+    if (!hasRunning) return
+    const id = setInterval(load, 3000)
+    return () => clearInterval(id)
+  }, [runs, load])
 
   const statusColor = (s: string) =>
-    s === 'completed' ? '#39d353' : s === 'running' ? '#e3b341' : s === 'failed' ? '#f85149' : '#8b949e'
+    s === 'done' ? '#39d353' : s === 'running' ? '#e3b341' : s === 'error' ? '#f85149' : '#8b949e'
 
   return (
     <div className="p-2">
@@ -319,7 +340,7 @@ function ScanHistoryPanel() {
           <RefreshCw size={12} />
         </button>
       </div>
-      {loading && <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto my-4" />}
+      {loading && runs.length === 0 && <Loader2 size={14} className="animate-spin text-muted-foreground mx-auto my-4" />}
       {!loading && runs.length === 0 && (
         <p className="text-xs text-muted-foreground text-center py-4">No scans yet</p>
       )}
@@ -328,6 +349,7 @@ function ScanHistoryPanel() {
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: statusColor(r.status) }} />
             <span className="font-mono text-foreground capitalize">{r.status}</span>
+            {r.status === 'running' && <Loader2 size={10} className="animate-spin text-[#e3b341]" />}
             <span className="ml-auto text-muted-foreground font-mono">{r.devices_found} found</span>
           </div>
           <div className="text-muted-foreground text-[10px] mt-0.5">
@@ -336,7 +358,11 @@ function ScanHistoryPanel() {
           {r.ranges.length > 0 && (
             <div className="text-[#8b949e] text-[10px] font-mono truncate">{r.ranges.join(', ')}</div>
           )}
-          {r.error && <div className="text-[#f85149] text-[10px] mt-0.5 truncate">{r.error}</div>}
+          {r.error && (
+            <div className="text-[#f85149] text-[10px] mt-1 leading-tight break-words whitespace-pre-wrap">
+              {r.error}
+            </div>
+          )}
         </div>
       ))}
     </div>
