@@ -80,7 +80,7 @@ export function ProxmoxGroupNode(props: NodeProps<Node<NodeData>>) {
         <div className="flex-1 relative" />
       </div>
 
-      <Handle type="target" position={Position.Top} className="!bg-[#30363d] !border-[#8b949e]" />
+      <Handle type="source" position={Position.Top} className="!bg-[#30363d] !border-[#8b949e]" />
       <Handle type="source" position={Position.Bottom} className="!bg-[#30363d] !border-[#8b949e]" />
 
       {/* Cluster handles — left/right for same-cluster links */}

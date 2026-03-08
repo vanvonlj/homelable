@@ -38,7 +38,7 @@ export function BaseNode({ data, selected, icon: typeIcon }: BaseNodeProps) {
         minWidth: 140,
       }}
     >
-      <Handle type="target" position={Position.Top} className="!bg-[#30363d] !border-[#8b949e]" />
+      <Handle type="source" position={Position.Top} className="!bg-[#30363d] !border-[#8b949e]" />
 
       {/* Icon */}
       <div
