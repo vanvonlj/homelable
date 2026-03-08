@@ -117,12 +117,23 @@ describe('canvasStore', () => {
     expect(hasUnsavedChanges).toBe(true)
   })
 
+  it('onConnect preserves type and label from edge data', () => {
+    const conn = Object.assign({ source: 'n1', target: 'n2', sourceHandle: null, targetHandle: null }, { type: 'wifi', label: 'uplink' })
+    useCanvasStore.getState().onConnect(conn)
+    const { edges } = useCanvasStore.getState()
+    expect(edges[0].type).toBe('wifi')
+    expect(edges[0].data?.type).toBe('wifi')
+    expect(edges[0].data?.label).toBe('uplink')
+  })
+
   it('onConnect preserves sourceHandle and targetHandle for cluster edges', () => {
-    useCanvasStore.getState().onConnect({ source: 'n1', target: 'n2', sourceHandle: 'cluster-right', targetHandle: 'cluster-left' })
+    const conn = Object.assign({ source: 'n1', target: 'n2', sourceHandle: 'cluster-right', targetHandle: 'cluster-left' }, { type: 'cluster' })
+    useCanvasStore.getState().onConnect(conn)
     const { edges } = useCanvasStore.getState()
     expect(edges).toHaveLength(1)
     expect(edges[0].sourceHandle).toBe('cluster-right')
     expect(edges[0].targetHandle).toBe('cluster-left')
+    expect(edges[0].type).toBe('cluster')
   })
 
   it('addNode with parent_id sets parentId and extent', () => {

@@ -261,6 +261,7 @@ export default function App() {
         />
 
         <EdgeModal
+          key={pendingConnection ? `${pendingConnection.source}-${pendingConnection.sourceHandle}-${pendingConnection.target}-${pendingConnection.targetHandle}` : 'conn-idle'}
           open={!!pendingConnection}
           onClose={() => setPendingConnection(null)}
           onSubmit={handleEdgeConfirm}

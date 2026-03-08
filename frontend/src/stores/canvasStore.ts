@@ -53,10 +53,18 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     })),
 
   onConnect: (connection) =>
-    set((state) => ({
-      edges: addEdge({ ...connection, type: 'ethernet', data: { type: 'ethernet' } }, state.edges),
-      hasUnsavedChanges: true,
-    })),
+    set((state) => {
+      const extra = connection as Connection & Partial<EdgeData>
+      const edgeType = extra.type ?? 'ethernet'
+      return {
+        edges: addEdge({
+          ...connection,
+          type: edgeType,
+          data: { type: edgeType, label: extra.label, vlan_id: extra.vlan_id, custom_color: extra.custom_color, path_style: extra.path_style },
+        }, state.edges),
+        hasUnsavedChanges: true,
+      }
+    }),
 
   setSelectedNode: (id) => set({ selectedNodeId: id }),
 
