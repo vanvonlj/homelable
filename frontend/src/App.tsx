@@ -264,6 +264,11 @@ export default function App() {
           open={!!pendingConnection}
           onClose={() => setPendingConnection(null)}
           onSubmit={handleEdgeConfirm}
+          initial={
+            pendingConnection?.sourceHandle?.includes('cluster') || pendingConnection?.targetHandle?.includes('cluster')
+              ? { type: 'cluster' }
+              : undefined
+          }
         />
 
         <EdgeModal
