@@ -1,10 +1,14 @@
 from collections.abc import AsyncGenerator
 from contextlib import suppress
+from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
+
+# Ensure the data directory exists before SQLite tries to open the file
+Path(settings.sqlite_path).parent.mkdir(parents=True, exist_ok=True)
 
 engine = create_async_engine(
     f"sqlite+aiosqlite:///{settings.sqlite_path}",
