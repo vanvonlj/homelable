@@ -25,3 +25,6 @@ addopts = "--tb=short -q"
 [tool.coverage.run]
 source = ["app"]
 omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.coverage.report]
+skip_empty = true

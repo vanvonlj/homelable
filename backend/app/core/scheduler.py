@@ -13,7 +13,7 @@ from app.services.status_checker import check_node
 
 logger = logging.getLogger(__name__)
 
-scheduler = AsyncIOScheduler()
+scheduler: AsyncIOScheduler = AsyncIOScheduler()
 
 
 async def _run_status_checks() -> None:
@@ -56,6 +56,8 @@ def _load_interval() -> int:
 
 
 def start_scheduler() -> None:
+    global scheduler
+    scheduler = AsyncIOScheduler()
     interval = _load_interval()
     scheduler.add_job(_run_status_checks, "interval", seconds=interval, id="status_checks")
     scheduler.start()
