@@ -53,13 +53,24 @@ docker compose up -d
 
 ## Proxmox LXC Install
 
-Run inside a Debian/Ubuntu LXC container:
+Run this **on the Proxmox host** — it creates a Debian 12 LXC container and installs Homelable inside automatically:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/scripts/lxc-install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/scripts/install-proxmox.sh)
 ```
 
-This installs the backend as a systemd service and serves the frontend via nginx.
+Default container settings: 2 cores, 1 GB RAM, 8 GB disk, DHCP on `vmbr0`. Override before running:
+
+```bash
+CTID=150 RAM=2048 STORAGE=local-zfs bash <(curl -fsSL .../install-proxmox.sh)
+```
+
+The backend runs as a systemd service, the frontend is served via nginx on port 80.
+
+> To install manually inside an existing Debian/Ubuntu machine or LXC:
+> ```bash
+> bash <(curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/scripts/lxc-install.sh)
+> ```
 
 ---
 
