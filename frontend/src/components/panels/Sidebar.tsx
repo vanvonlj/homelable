@@ -223,8 +223,13 @@ function PendingDevicesPanel({ onNodeApproved }: { onNodeApproved: (nodeId: stri
           <p className="text-xs text-muted-foreground text-center py-4">No pending devices</p>
         )}
         {devices.map((d) => {
-          const recognized = d.services.find((s) => s.category != null)
-          const title = recognized?.service_name ?? d.hostname ?? d.ip
+          const COMMON_PORTS = new Set([22, 80, 443])
+          const namedService = d.services.find((s) => s.category != null && !COMMON_PORTS.has(s.port))
+          const titleService = namedService
+            ?? d.services.find((s) => s.port === 80)
+            ?? d.services.find((s) => s.port === 443)
+            ?? d.services.find((s) => s.port === 22)
+          const title = titleService?.service_name ?? d.hostname ?? d.ip
           const showIpBelow = title !== d.ip
           const hasSsh = d.services.some((s) => s.port === 22)
           const hasHttp = d.services.some((s) => s.port === 80)
