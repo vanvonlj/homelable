@@ -9,6 +9,16 @@ If you just like the design, you can only run the frontend and export your desig
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/homelable1.png" alt="Homelable canvas overview" width="100%" />
+  <img src="docs/homelable2.png" alt="Homelable node detail" width="100%" />
+  <img src="docs/homelable3.png" alt="Homelable sidebar and scan" width="100%" />
+</p>
+
+---
+
 ## Quick Start — Docker
 
 ```bash
