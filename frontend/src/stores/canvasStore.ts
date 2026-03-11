@@ -163,7 +163,6 @@ export const useCanvasStore = create<CanvasState>((set) => ({
 
   notifyScanDeviceFound: () => set({ scanEventTs: Date.now() }),
 
-  hideIp: false,
   toggleHideIp: () => set((s) => ({ hideIp: !s.hideIp })),
 
   loadCanvas: (nodes, edges) => {
