@@ -3,6 +3,7 @@ import {
   EdgeLabelRenderer,
   getBezierPath,
   getSmoothStepPath,
+  useStore,
   type EdgeProps,
   type Edge,
 } from '@xyflow/react'
@@ -17,9 +18,12 @@ function getVlanColor(vlanId?: number): string {
   return VLAN_COLORS[vlanId % VLAN_COLORS.length]
 }
 
-export function HomelableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }: EdgeProps<Edge<EdgeData>>) {
+export function HomelableEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }: EdgeProps<Edge<EdgeData>>) {
   const activeTheme = useThemeStore((s) => s.activeTheme)
   const theme = THEMES[activeTheme]
+  const sourceType = useStore((s) => s.nodeLookup.get(source)?.type)
+  const targetType = useStore((s) => s.nodeLookup.get(target)?.type)
+  const isBidirectional = sourceType === 'proxmox' && targetType === 'proxmox'
 
   const pathArgs = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }
   const [edgePath, labelX, labelY] = data?.path_style === 'smooth'
@@ -48,7 +52,7 @@ export function HomelableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePo
 
   // Animated dot: slightly brighter + thicker than the base edge, travels source→target
   const dotColor = customColor ?? (edgeType === 'vlan' ? getVlanColor(data?.vlan_id as number | undefined) : edgeColors[edgeType as keyof typeof edgeColors] as string)
-  const dotWidth = (style.strokeWidth as number ?? 2) + 1.5
+  const dotWidth = ((style.strokeWidth as number ?? 2) + 1.5) * 2
 
   return (
     <>
@@ -59,17 +63,27 @@ export function HomelableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePo
           fill="none"
           stroke={dotColor}
           strokeWidth={dotWidth}
-          strokeDasharray="8 10000"
+          strokeDasharray="20 10000"
           strokeLinecap="round"
           style={{ pointerEvents: 'none' }}
         >
-          <animate
-            attributeName="stroke-dashoffset"
-            from="0"
-            to="-10000"
-            dur="2.5s"
-            repeatCount="indefinite"
-          />
+          {isBidirectional ? (
+            <animate
+              attributeName="stroke-dashoffset"
+              values="-10000;0;-10000"
+              keyTimes="0;0.5;1"
+              dur="20s"
+              repeatCount="indefinite"
+            />
+          ) : (
+            <animate
+              attributeName="stroke-dashoffset"
+              from="-10000"
+              to="0"
+              dur="10s"
+              repeatCount="indefinite"
+            />
+          )}
         </path>
       )}
       {data?.label && (
