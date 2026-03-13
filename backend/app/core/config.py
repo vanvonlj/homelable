@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # Status checker
     status_checker_interval: int = 60
 
+    # MCP service key — set MCP_SERVICE_KEY in .env
+    # Used by the MCP server to authenticate against the backend without a user password.
+    # Leave empty to disable MCP service key auth.
+    mcp_service_key: str = ""
+
     def _override_path(self) -> Path:
         return Path(self.sqlite_path).parent / "scan_config.json"
 

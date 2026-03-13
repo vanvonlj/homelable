@@ -162,6 +162,88 @@ Proxmox nodes render as a resizable group container. VM and LXC nodes can be pla
 
 ---
 
+## MCP Server (AI Integration)
+
+Homelable exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so any MCP-compatible AI client (Claude Code, Claude Desktop, Open WebUI…) can read your homelab topology and act on it.
+
+### What the AI can do
+
+| | Action |
+|---|---|
+| **Read** | List all nodes, edges, full canvas, pending devices, scan history |
+| **Write** | Add / update / delete nodes and edges, trigger a network scan, approve or hide discovered devices |
+
+### Setup
+
+**1. Add the keys to your `.env`:**
+
+```env
+# Authenticates AI clients (Claude Code, etc.) → MCP server
+MCP_API_KEY=mcp_sk_changeme
+
+# Authenticates MCP server → backend (internal Docker network only, never exposed)
+MCP_SERVICE_KEY=svc_changeme
+
+# Generate both with:
+# python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+No plain-text passwords involved — `AUTH_PASSWORD_HASH` is only used for the web UI login.
+
+**2. Start the MCP service:**
+
+```bash
+docker compose up -d mcp
+# MCP server is now listening on http://<your-homelab-ip>:8001
+```
+
+**3. Configure your AI client:**
+
+**Claude Code** (`~/.claude/claude_desktop_config.json` or via `/mcp` in the CLI):
+```json
+{
+  "mcpServers": {
+    "homelable": {
+      "type": "sse",
+      "url": "http://<your-homelab-ip>:8001/mcp",
+      "headers": {
+        "X-API-Key": "mcp_sk_yourkey"
+      }
+    }
+  }
+}
+```
+
+**Claude Desktop** (same config file, usually `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+```json
+{
+  "mcpServers": {
+    "homelable": {
+      "type": "sse",
+      "url": "http://<your-homelab-ip>:8001/mcp",
+      "headers": {
+        "X-API-Key": "mcp_sk_yourkey"
+      }
+    }
+  }
+}
+```
+
+### Example prompts
+
+- *"What nodes are currently offline?"*
+- *"Add a new LXC container named `pihole` at 192.168.1.5, connected to my switch."*
+- *"Trigger a network scan on 192.168.1.0/24 and show me the pending devices."*
+- *"Show me the full canvas topology."*
+
+### Security
+
+- The MCP server is **not** intended to be exposed to the internet — keep port 8001 firewalled to your LAN.
+- Rotate the key any time by updating `MCP_API_KEY` in `.env` and restarting: `docker compose restart mcp`.
+- The MCP server communicates with the backend over the internal Docker network — the backend API is never directly exposed to MCP clients.
+
+---
+
 ## Development Mode
 
 **Backend (Python 3.13):**
