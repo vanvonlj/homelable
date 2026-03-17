@@ -10,6 +10,7 @@ import {
   addEdge,
 } from '@xyflow/react'
 import type { NodeData, EdgeData } from '@/types'
+import { generateUUID } from '@/utils/uuid'
 
 type HistoryEntry = { nodes: Node<NodeData>[]; edges: Edge<EdgeData>[] }
 
@@ -108,7 +109,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       if (state.clipboard.length === 0) return state
       const newNodes = state.clipboard.map((n) => ({
         ...n,
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         position: { x: n.position.x + 50, y: n.position.y + 50 },
         selected: false,
         parentId: undefined,

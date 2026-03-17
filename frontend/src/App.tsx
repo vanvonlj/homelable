@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef, useState } from 'react'
 import { ReactFlowProvider, type Connection, type Edge } from '@xyflow/react'
 import { type Node } from '@xyflow/react'
 import { applyDagreLayout } from '@/utils/layout'
+import { generateUUID } from '@/utils/uuid'
 import { generateMarkdownTable } from '@/utils/exportMarkdown'
 import { exportToPng } from '@/utils/export'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -238,7 +239,7 @@ export default function App() {
 
   const handleAddNode = useCallback((data: Partial<NodeData>) => {
     snapshotHistory()
-    const id = crypto.randomUUID()
+    const id = generateUUID()
     const isProxmox = data.type === 'proxmox'
     const parentNode = data.parent_id ? nodes.find((n) => n.id === data.parent_id) : null
     // Children position is relative to parent; place near top-left with padding
@@ -260,7 +261,7 @@ export default function App() {
 
   const handleAddGroupRect = useCallback((data: GroupRectFormData) => {
     snapshotHistory()
-    const id = crypto.randomUUID()
+    const id = generateUUID()
     const newNode: Node<NodeData> = {
       id,
       type: 'groupRect',

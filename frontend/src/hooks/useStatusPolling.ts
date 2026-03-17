@@ -23,8 +23,8 @@ export function useStatusPolling() {
     if (STANDALONE || !isAuthenticated || !token) return
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const host = window.location.hostname
-    const url = `${protocol}://${host}:8000/api/v1/status/ws/status?token=${encodeURIComponent(token)}`
+    const host = window.location.host  // includes port when non-standard
+    const url = `${protocol}://${host}/api/v1/status/ws/status?token=${encodeURIComponent(token)}`
 
     const ws = new WebSocket(url)
     wsRef.current = ws
