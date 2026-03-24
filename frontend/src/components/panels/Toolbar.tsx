@@ -73,10 +73,10 @@ export function Toolbar({ onSave, onAutoLayout, onExport, onChangeStyle, onUndo,
         onChange={handleFileChange}
       />
       <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={onExportYaml} title="Export canvas as YAML">
-        <FileDown size={14} /> Export
+        <Download size={14} /> Export
       </Button>
       <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={onExport} title="Download canvas as PNG">
-        <Download size={14} /> PNG
+        <FileDown size={14} /> PNG
       </Button>
       <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground hover:text-foreground" onClick={onExportMd} title="Copy inventory as Markdown table">
         <Table2 size={14} /> MD
