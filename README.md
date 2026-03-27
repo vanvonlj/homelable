@@ -21,104 +21,9 @@ If you just like the design, you can only run the frontend and export your desig
 
 ---
 
-## Quick Start — Docker
+## Installation
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/install.sh | bash
-cd homelable && docker compose up -d
-```
-
-Open **http://localhost:3000** — login with `admin` / `admin`.
-
-> Change the password before exposing to a network: edit `.env` and update `AUTH_USERNAME` / `AUTH_PASSWORD_HASH`.
->
-> Generate a new hash: `docker compose exec backend python -c "from passlib.context import CryptContext; print(CryptContext(schemes=['bcrypt']).hash('yourpassword'))"`
->
-> ⚠️ Keep the single quotes around the hash value in `.env` — bcrypt hashes contain `$` characters that Docker Compose would otherwise misinterpret.
-
-## Quick Start - Front only
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/install.sh | bash -s -- --standalone
-cd homelable && docker compose up -d
-```
-
-### Update
-
-Re-run the install script — it detects an existing install and only updates `docker-compose.yml`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/install.sh | bash
-cd homelable && docker compose pull && docker compose up -d
-```
-
-### Build from source
-
-```bash
-git clone https://github.com/Pouzor/homelable.git
-cd homelable
-cp .env.example .env
-docker compose up -d
-```
-
----
-
-## Proxmox LXC Install
-
-Run this **on the Proxmox host** — it creates a Debian 12 LXC container and installs Homelable inside automatically:
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/scripts/install-proxmox.sh)
-```
-
-Default container settings: 2 cores, 1 GB RAM, 8 GB disk, DHCP on `vmbr0`. Override before running:
-
-```bash
-CTID=150 RAM=2048 STORAGE=local-zfs bash <(curl -fsSL .../install-proxmox.sh)
-```
-
-The backend runs as a systemd service, the frontend is served via nginx on port 80.
-
-> To install manually inside an existing Debian/Ubuntu machine or LXC:
-> ```bash
-> bash <(curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/scripts/lxc-install.sh)
-> ```
-
-### Update
-
-Run the update script inside the container (pulls latest code, rebuilds frontend, restarts services — `.env` and database are never touched):
-
-```bash
-sudo bash /opt/homelable/scripts/update.sh
-```
-
-Or directly from GitHub:
-
-```bash
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/scripts/update.sh)
-```
-
----
-
-## Configuration
-
-All configuration is done via `.env` (copied from `.env.example`):
-
-```env
-SECRET_KEY=change_me_in_production
-
-# Auth — default: admin / admin
-AUTH_USERNAME=admin
-AUTH_PASSWORD_HASH='$2b$12$...'   # bcrypt hash — keep single quotes
-
-# CIDR ranges to scan
-SCANNER_RANGES=["192.168.1.0/24"]
-
-# How often to check node status (seconds)
-STATUS_CHECKER_INTERVAL=60
-```
-
-All settings are also editable in-app via the **Scan Network** button.
+Docker, Proxmox LXC, build from source, configuration, and development setup are all covered in **[INSTALLATION.md](./INSTALLATION.md)**.
 
 ---
 
@@ -128,7 +33,8 @@ The scanner runs `nmap -sV --open` on your configured CIDR ranges and populates 
 
 ### Triggering a scan
 
-Click **Scan Network** in the sidebar. The Scan History tab opens automatically and refreshes every 3 seconds until the scan completes. Errors are shown inline and as a toast notification.
+To save you time when mapping your infrastructure, Homlable can scan your network and report all the services it detects. It can also identify them, saving you even more time.
+Click **Scan Network** in the sidebar. The Scan History tab opens automatically and refreshes every 3 seconds until the scan completes.
 
 ### macOS / root privileges
 
@@ -151,18 +57,9 @@ Results are written directly to the database and appear as Pending Devices in th
 
 ---
 
-## Proxmox Nested Nodes
-
-Proxmox nodes render as a resizable group container. VM and LXC nodes can be placed inside:
-
-1. Add a **Proxmox VE** node to the canvas
-2. Add a **VM** or **LXC** node — select the Proxmox node in the **Parent Proxmox** dropdown
-3. The child node appears inside the group and moves with it
-4. Select the Proxmox node to reveal resize handles (drag corners to expand)
-
----
-
 ## Node Check Methods
+
+Homelable continuously monitors your nodes and displays their live status (online / offline / unknown) directly on the canvas. Each node can be configured with an independent check method suited to the service it runs.
 
 | Method | Description |
 |--------|-------------|
@@ -176,9 +73,9 @@ Proxmox nodes render as a resizable group container. VM and LXC nodes can be pla
 
 ---
 
-## MCP Server (AI Integration)
+## MCP Server (AI Integration) (optionnal)
 
-Homelable exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so any MCP-compatible AI client (Claude Code, Claude Desktop, Open WebUI…) can read your homelab topology and act on it.
+Homelable can exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so any MCP-compatible AI client (Claude Code, Claude Desktop, Open WebUI…) can read your homelab topology and act on it.
 
 ### What the AI can do
 
@@ -261,26 +158,5 @@ Or add it manually to `~/.claude.json`:
 - The MCP server is **not** intended to be exposed to the internet — keep port 8001 firewalled to your LAN.
 - Rotate the key any time by updating `MCP_API_KEY` in `.env` and restarting: `docker compose restart mcp`.
 - The MCP server communicates with the backend over the internal Docker network — the backend API is never directly exposed to MCP clients.
-
----
-
-## Development Mode
-
-**Backend (Python 3.13):**
-```bash
-cd backend
-python3.13 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp ../.env.example .env       # edit SECRET_KEY and review defaults
-uvicorn app.main:app --reload --port 8000
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev   # http://localhost:5173
-```
-
 
 ---
