@@ -15,6 +15,7 @@ export interface GroupRectFormData {
   text_position: TextPosition
   border_color: string
   border_style: BorderStyle
+  border_width: number
   background_color: string
   z_order: number
 }
@@ -27,6 +28,14 @@ const BORDER_STYLES: { value: BorderStyle; label: string; preview: string }[] = 
   { value: 'none',   label: 'None',   preview: '   ' },
 ]
 
+const BORDER_WIDTHS: { value: number; label: string }[] = [
+  { value: 1, label: '1px' },
+  { value: 2, label: '2px' },
+  { value: 3, label: '3px' },
+  { value: 4, label: '4px' },
+  { value: 5, label: '5px' },
+]
+
 const DEFAULT_FORM: GroupRectFormData = {
   label: '',
   font: 'inter',
@@ -34,6 +43,7 @@ const DEFAULT_FORM: GroupRectFormData = {
   text_position: 'top-left',
   border_color: '#00d4ff',
   border_style: 'solid',
+  border_width: 2,
   background_color: '#00d4ff0d',
   z_order: 1,
 }
@@ -65,7 +75,7 @@ interface GroupRectModalProps {
   title?: string
 }
 
-export function GroupRectModal({ open, onClose, onSubmit, onDelete, initial, title = 'Add Rectangle' }: GroupRectModalProps) {
+export function GroupRectModal({ open, onClose, onSubmit, onDelete, initial, title = 'Add Zone' }: GroupRectModalProps) {
   const [form, setForm] = useState<GroupRectFormData>({ ...DEFAULT_FORM, ...initial })
 
   const set = <K extends keyof GroupRectFormData>(key: K, value: GroupRectFormData[K]) =>
@@ -196,6 +206,31 @@ export function GroupRectModal({ open, onClose, onSubmit, onDelete, initial, tit
             </div>
           </div>
 
+          {/* Border width */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Border Width</Label>
+            <div className="grid grid-cols-5 gap-1">
+              {BORDER_WIDTHS.map(({ value, label }) => {
+                const isSelected = form.border_width === value
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => set('border_width', value)}
+                    className="flex items-center justify-center h-8 rounded text-xs transition-colors"
+                    style={{
+                      background: isSelected ? '#00d4ff22' : '#21262d',
+                      border: `1px solid ${isSelected ? '#00d4ff88' : '#30363d'}`,
+                      color: isSelected ? '#00d4ff' : '#8b949e',
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Z-order */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground">Z-Order (1 = furthest back)</Label>
@@ -230,7 +265,7 @@ export function GroupRectModal({ open, onClose, onSubmit, onDelete, initial, tit
                 Cancel
               </Button>
               <Button type="submit" size="sm" className="bg-[#00d4ff] text-[#0d1117] hover:bg-[#00d4ff]/90">
-                {title === 'Add Rectangle' ? 'Add' : 'Save'}
+                {title === 'Add Zone' ? 'Add' : 'Save'}
               </Button>
             </div>
           </div>

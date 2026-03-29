@@ -32,6 +32,7 @@ export function GroupRectNode({ id, data, selected }: NodeProps<Node<NodeData>>)
   const rc = data.custom_colors ?? {}
   const borderColor = rc.border ?? '#00d4ff'
   const borderStyle = rc.border_style ?? 'solid'
+  const borderWidth = rc.border_width ?? 2
   const backgroundColor = rc.background ?? 'rgba(0,212,255,0.05)'
   const textColor = rc.text_color ?? '#e6edf3'
   const fontFamily = FONT_FAMILIES[rc.font ?? 'inter'] ?? FONT_FAMILIES.inter
@@ -62,7 +63,7 @@ export function GroupRectNode({ id, data, selected }: NodeProps<Node<NodeData>>)
           justifyContent: posStyle.justifyContent,
           padding: 12,
           background: backgroundColor,
-          border: `${selected ? 2 : 1}px ${selected ? 'solid' : borderStyle} ${selected ? '#00d4ff' : borderColor}`,
+          border: `${selected ? borderWidth + 1 : borderWidth}px ${selected ? 'solid' : borderStyle} ${selected ? '#00d4ff' : borderColor}`,
           borderRadius: 10,
           fontFamily,
           color: textColor,
