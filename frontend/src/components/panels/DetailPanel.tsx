@@ -142,7 +142,7 @@ export function DetailPanel({ onEdit }: DetailPanelProps) {
       <div className="px-4 py-3 border-t border-border">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-muted-foreground">
-            Services{data.services.length > 0 ? ` (${data.services.length})` : ''}
+            Services{(data.services ?? []).length > 0 ? ` (${data.services.length})` : ''}
           </span>
           <button
             onClick={() => { setAddingForNode((v) => v === node.id ? null : node.id); setEditingFor(null) }}
@@ -164,9 +164,9 @@ export function DetailPanel({ onEdit }: DetailPanelProps) {
           />
         )}
 
-        {data.services.length > 0 && (
+        {(data.services ?? []).length > 0 && (
           <div className="flex flex-col gap-1.5">
-            {data.services.map((svc, i) =>
+            {(data.services ?? []).map((svc, i) =>
               editingIndex === i ? (
                 <ServiceForm
                   key={`edit-${i}`}
@@ -190,7 +190,7 @@ export function DetailPanel({ onEdit }: DetailPanelProps) {
           </div>
         )}
 
-        {data.services.length === 0 && !addingService && (
+        {(data.services ?? []).length === 0 && !addingService && (
           <p className="text-[10px] text-muted-foreground/50">No services — click Add to register one.</p>
         )}
       </div>
@@ -208,7 +208,7 @@ export function DetailPanel({ onEdit }: DetailPanelProps) {
         <Button size="sm" variant="secondary" className="flex-1 gap-1.5" onClick={() => onEdit(node.id)}>
           <Edit size={14} /> Edit
         </Button>
-        <Button size="sm" variant="destructive" className="gap-1.5" onClick={handleDelete}>
+        <Button size="sm" variant="destructive" className="gap-1.5" aria-label="Delete node" onClick={handleDelete}>
           <Trash2 size={14} />
         </Button>
       </div>
