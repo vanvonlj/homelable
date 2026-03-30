@@ -53,5 +53,11 @@ def start_scheduler() -> None:
     logger.info("Scheduler started — status checks every %ds", settings.status_checker_interval)
 
 
+def reschedule_status_checks(interval_seconds: int) -> None:
+    """Update the status check interval on the running scheduler."""
+    scheduler.reschedule_job("status_checks", trigger="interval", seconds=interval_seconds)
+    logger.info("Status checks rescheduled to every %ds", interval_seconds)
+
+
 def stop_scheduler() -> None:
     scheduler.shutdown(wait=False)
