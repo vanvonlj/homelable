@@ -3,7 +3,7 @@ import { Plus, Save, ScanLine, ChevronLeft, ChevronRight, LayoutDashboard, Clock
 import { Logo } from '@/components/ui/Logo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCanvasStore } from '@/stores/canvasStore'
-import { scanApi } from '@/api/client'
+import { scanApi, settingsApi } from '@/api/client'
 import { toast } from 'sonner'
 import { PendingDeviceModal, type PendingDevice } from '@/components/modals/PendingDeviceModal'
 
@@ -429,22 +429,18 @@ function ScanHistoryPanel() {
 
 function SettingsPanel() {
   const [interval, setIntervalValue] = useState(60)
-  const [ranges, setRangesValue] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    scanApi.getConfig()
-      .then((res) => {
-        setIntervalValue(res.data.interval_seconds)
-        setRangesValue(res.data.ranges)
-      })
-      .catch(() => {/* use current defaults */})
+    settingsApi.get()
+      .then((res) => setIntervalValue(res.data.interval_seconds))
+      .catch(() => {/* use default */})
   }, [])
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      await scanApi.saveConfig({ ranges, interval_seconds: interval })
+      await settingsApi.save({ interval_seconds: interval })
       toast.success('Settings saved')
     } catch {
       toast.error('Failed to save settings')

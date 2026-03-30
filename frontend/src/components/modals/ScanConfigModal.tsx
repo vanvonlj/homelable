@@ -15,16 +15,12 @@ interface ScanConfigModalProps {
 
 export function ScanConfigModal({ open, onClose, onScanNow }: ScanConfigModalProps) {
   const [ranges, setRanges] = useState<string[]>([''])
-  const [interval, setInterval] = useState(60)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!open) return
     scanApi.getConfig()
-      .then((res) => {
-        setRanges(res.data.ranges.length > 0 ? res.data.ranges : [''])
-        setInterval(res.data.interval_seconds)
-      })
+      .then((res) => setRanges(res.data.ranges.length > 0 ? res.data.ranges : ['']))
       .catch(() => {/* use defaults */})
   }, [open])
 
@@ -33,7 +29,7 @@ export function ScanConfigModal({ open, onClose, onScanNow }: ScanConfigModalPro
     if (cleaned.length === 0) { toast.error('Add at least one IP range'); return }
     setSaving(true)
     try {
-      await scanApi.saveConfig({ ranges: cleaned, interval_seconds: interval })
+      await scanApi.saveConfig({ ranges: cleaned })
       toast.success('Scan config saved')
       onClose()
     } catch {
