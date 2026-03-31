@@ -11,14 +11,18 @@ Open **http://localhost:3000** — login with `admin` / `admin`.
 
 > Change the password before exposing to a network: edit `.env` and update `AUTH_USERNAME` / `AUTH_PASSWORD_HASH`.
 >
-> Generate a new hash: `docker compose exec backend python -c "from passlib.context import CryptContext; print(CryptContext(schemes=['bcrypt']).hash('yourpassword'))"`
->
-> ⚠️ **bcrypt hashes contain `$` characters** — how to handle them depends on where you set the value:
-> - **`.env` file** (recommended): wrap the hash in single quotes → `AUTH_PASSWORD_HASH='$2b$12$...'`
-> - **`docker-compose.yml` `environment:` block**: escape every `$` as `$$` — use this command to generate a pre-escaped hash:
->   ```bash
->   docker compose exec backend python -c "from passlib.context import CryptContext; print(CryptContext(schemes=['bcrypt']).hash('yourpassword').replace('\$', '\$\$'))"
->   ```
+Generate a new hash: 
+```bash 
+docker compose exec backend python -c "from passlib.context import CryptContext; print(CryptContext(schemes=['bcrypt']).hash('yourpassword'))"
+```
+
+
+⚠️ **bcrypt hashes contain `$` characters** — how to handle them depends on where you set the value:
+ - **`.env` file** (recommended): wrap the hash in single quotes → `AUTH_PASSWORD_HASH='$2b$12$...'`
+ - **`docker-compose.yml` `environment:` block**: escape every `$` as `$$` — use this command to generate a pre-escaped hash:
+   ```bash
+   docker compose exec backend python -c "from passlib.context import CryptContext; print(CryptContext(schemes=['bcrypt']).hash('yourpassword').replace('\$', '\$\$'))"
+   ```
 
 ## Quick Start — Frontend only
 
