@@ -18,6 +18,7 @@ import { useThemeStore } from '@/stores/themeStore'
 import { THEMES } from '@/utils/themes'
 import { nodeTypes } from './nodes/nodeTypes'
 import { edgeTypes } from './edges/edgeTypes'
+import { SearchBar } from './SearchBar'
 import type { NodeData, EdgeData } from '@/types'
 
 interface CanvasContainerProps {
@@ -88,6 +89,7 @@ export function CanvasContainer({ onConnect: onConnectProp, onEdgeDoubleClick, o
           size={1}
           color={theme.colors.canvasDotColor}
         />
+        <SearchBar />
         <Controls>
           <ControlButton
             onClick={() => setLassoMode((m) => !m)}
