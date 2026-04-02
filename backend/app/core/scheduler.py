@@ -16,30 +16,40 @@ logger = logging.getLogger(__name__)
 scheduler: AsyncIOScheduler = AsyncIOScheduler()
 
 
-async def _check_single_node(node: Node) -> tuple[str, dict[str, object] | None]:
-    """Run a single node check; returns (node_id, result_or_None)."""
+async def _check_single_node(
+    node_id: str,
+    check_method: str,
+    check_target: str | None,
+    ip: str | None,
+) -> tuple[str, dict[str, object] | None]:
+    """Run a single node check; returns (node_id, result_or_None).
+
+    Accepts plain scalars — not an ORM object — so there is no risk of
+    DetachedInstanceError when the originating session has already closed.
+    """
     from app.api.routes.status import broadcast_status  # avoid circular import
 
     try:
-        check_result = await check_node(node.check_method or "", node.check_target, node.ip)
+        check_result = await check_node(check_method, check_target, ip)
+        now = datetime.now(timezone.utc)
         async with AsyncSessionLocal() as db:
-            n = await db.get(Node, node.id)
+            n = await db.get(Node, node_id)
             if n:
                 n.status = check_result["status"]
                 n.response_time_ms = check_result["response_time_ms"]
                 if check_result["status"] == "online":
-                    n.last_seen = datetime.now(timezone.utc)
+                    n.last_seen = now
                 await db.commit()
         await broadcast_status(
-            node_id=node.id,
+            node_id=node_id,
             status=check_result["status"],
-            checked_at=datetime.now(timezone.utc).isoformat(),
+            checked_at=now.isoformat(),
             response_time_ms=check_result["response_time_ms"],
         )
-        return node.id, check_result
+        return node_id, check_result
     except Exception as exc:
-        logger.error("Status check failed for node %s: %s", node.id, exc)
-        return node.id, None
+        logger.error("Status check failed for node %s: %s", node_id, exc)
+        return node_id, None
 
 
 async def _run_status_checks() -> None:
@@ -47,12 +57,20 @@ async def _run_status_checks() -> None:
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(Node))
         nodes = result.scalars().all()
+        # Extract scalars while the session is open to avoid DetachedInstanceError
+        checkable = [
+            (n.id, n.check_method, n.check_target, n.ip)
+            for n in nodes
+            if n.check_method
+        ]
 
-    checkable = [n for n in nodes if n.check_method]
     if not checkable:
         return
 
-    await asyncio.gather(*[_check_single_node(n) for n in checkable])
+    await asyncio.gather(*[
+        _check_single_node(node_id, method, target, ip)
+        for node_id, method, target, ip in checkable
+    ])
 
 
 def start_scheduler() -> None:
