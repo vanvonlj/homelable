@@ -16,12 +16,12 @@ logger = logging.getLogger(__name__)
 scheduler: AsyncIOScheduler = AsyncIOScheduler()
 
 
-async def _check_single_node(node: Node) -> tuple[str, dict | None]:
+async def _check_single_node(node: Node) -> tuple[str, dict[str, object] | None]:
     """Run a single node check; returns (node_id, result_or_None)."""
     from app.api.routes.status import broadcast_status  # avoid circular import
 
     try:
-        check_result = await check_node(node.check_method, node.check_target, node.ip)
+        check_result = await check_node(node.check_method or "", node.check_target, node.ip)
         async with AsyncSessionLocal() as db:
             n = await db.get(Node, node.id)
             if n:
