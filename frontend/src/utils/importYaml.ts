@@ -34,16 +34,16 @@ export function parseYamlToCanvas(
   const yamlNodes: YamlNode[] = []
 
   for (const entry of entries) {
-    const raw = entry as Record<string, unknown>
+    const entryRecord = entry as Record<string, unknown>
 
-    if (!raw.nodeType || typeof raw.nodeType !== 'string') {
+    if (!entryRecord.nodeType || typeof entryRecord.nodeType !== 'string') {
       throw new Error(`Each YAML entry must have a "nodeType" string field`)
     }
-    if (!raw.label || typeof raw.label !== 'string') {
+    if (!entryRecord.label || typeof entryRecord.label !== 'string') {
       throw new Error(`Each YAML entry must have a "label" string field`)
     }
 
-    const yn = raw as unknown as YamlNode
+    const yn = entryRecord as unknown as YamlNode
 
     // Skip if a node with this label already exists on the canvas
     if (labelToId.has(yn.label)) {
@@ -95,6 +95,8 @@ export function parseYamlToCanvas(
     sourceId: string,
     targetId: string,
     conn: YamlNodeConnection,
+    sourceHandle = 'bottom',
+    targetHandle = 'top-t',
   ) {
     const key = `${sourceId}|${targetId}`
     const reverseKey = `${targetId}|${sourceId}`
@@ -105,6 +107,8 @@ export function parseYamlToCanvas(
       id: generateUUID(),
       source: sourceId,
       target: targetId,
+      sourceHandle,
+      targetHandle,
       type: edgeType,
       data: {
         type: edgeType,
@@ -126,8 +130,8 @@ export function parseYamlToCanvas(
         node.data = { ...node.data, parent_id: parentId }
         node.parentId = parentId
         node.extent = 'parent'
-        // Also create an edge
-        addEdgeIfNew(parentId, node.id, yn.parent)
+        // Also create an edge (parent bottom → child top)
+        addEdgeIfNew(parentId, node.id, yn.parent, 'bottom', 'top-t')
       }
     }
 
@@ -137,7 +141,7 @@ export function parseYamlToCanvas(
         if (!targetId) {
           console.warn(`[importYaml] links label not found: "${link.label}" — skipping`)
         } else {
-          addEdgeIfNew(node.id, targetId, link)
+          addEdgeIfNew(node.id, targetId, link, 'bottom', 'top-t')
         }
       }
     }
@@ -147,7 +151,7 @@ export function parseYamlToCanvas(
       if (!targetId) {
         console.warn(`[importYaml] clusterR label not found: "${yn.clusterR.label}" — skipping`)
       } else {
-        addEdgeIfNew(node.id, targetId, yn.clusterR)
+        addEdgeIfNew(node.id, targetId, yn.clusterR, 'cluster-right', 'cluster-left')
       }
     }
 
@@ -156,7 +160,7 @@ export function parseYamlToCanvas(
       if (!sourceId) {
         console.warn(`[importYaml] clusterL label not found: "${yn.clusterL.label}" — skipping`)
       } else {
-        addEdgeIfNew(sourceId, node.id, yn.clusterL)
+        addEdgeIfNew(sourceId, node.id, yn.clusterL, 'cluster-right', 'cluster-left')
       }
     }
   }

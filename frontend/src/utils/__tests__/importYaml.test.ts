@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { parseYamlToCanvas } from '../importYaml'
 import type { Node, Edge } from '@xyflow/react'
 import type { NodeData, EdgeData } from '@/types'
@@ -71,6 +71,38 @@ describe('parseYamlToCanvas', () => {
     const yaml = `- nodeType: server\n  label: "NoHW"\n`
     const { nodes } = parseYamlToCanvas(yaml, empty, emptyEdges)
     expect(nodes[0].data.show_hardware).toBeUndefined()
+  })
+
+  it('links edges have bottom→top-t handles', () => {
+    const yaml = `
+- nodeType: switch
+  label: "SW"
+  links:
+    - label: "SRV"
+      linkType: ethernet
+- nodeType: server
+  label: "SRV"
+`
+    const { edges } = parseYamlToCanvas(yaml, empty, emptyEdges)
+    expect(edges).toHaveLength(1)
+    expect(edges[0].sourceHandle).toBe('bottom')
+    expect(edges[0].targetHandle).toBe('top-t')
+  })
+
+  it('cluster edges have cluster-right→cluster-left handles', () => {
+    const yaml = `
+- nodeType: proxmox
+  label: "PVE1"
+  clusterR:
+    label: "PVE2"
+    linkType: ethernet
+- nodeType: proxmox
+  label: "PVE2"
+`
+    const { edges } = parseYamlToCanvas(yaml, empty, emptyEdges)
+    expect(edges).toHaveLength(1)
+    expect(edges[0].sourceHandle).toBe('cluster-right')
+    expect(edges[0].targetHandle).toBe('cluster-left')
   })
 
   it('parent relationship sets parentId and creates an edge', () => {
