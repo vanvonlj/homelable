@@ -90,7 +90,7 @@ export function CanvasContainer({ onConnect: onConnectProp, onEdgeDoubleClick, o
         selectionMode={SelectionMode.Partial}
         multiSelectionKeyCode={['Meta', 'Control']}
         snapToGrid
-        snapGrid={[16, 16]}
+        snapGrid={[8, 8]}
         colorMode={theme.colors.reactFlowColorMode}
         elevateNodesOnSelect={false}
         connectionMode={ConnectionMode.Loose}

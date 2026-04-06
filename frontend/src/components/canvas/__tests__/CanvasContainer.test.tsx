@@ -142,9 +142,9 @@ describe('CanvasContainer', () => {
     expect(rfProps.snapToGrid).toBe(true)
   })
 
-  it('sets snapGrid to [16, 16]', () => {
+  it('sets snapGrid to [8, 8]', () => {
     render(<CanvasContainer />)
-    expect(rfProps.snapGrid).toEqual([16, 16])
+    expect(rfProps.snapGrid).toEqual([8, 8])
   })
 
   // ── Delete key ────────────────────────────────────────────────────────────
