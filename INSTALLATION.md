@@ -62,20 +62,6 @@ You can now install Homelable with community-scripts (proxmox-VE) :
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/homelable.sh)"
 ```
 
-### Update (LXC)
-
-Run the update script inside the container (pulls latest code, rebuilds frontend, restarts services — `.env` and database are never touched):
-
-```bash
-sudo bash /opt/homelable/scripts/update.sh
-```
-
-Or directly from GitHub:
-
-```bash
-sudo bash <(curl -fsSL https://raw.githubusercontent.com/Pouzor/homelable/main/scripts/update.sh)
-```
-
 ---
 
 ## Configuration
