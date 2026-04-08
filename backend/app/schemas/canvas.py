@@ -49,6 +49,7 @@ class EdgeSave(BaseModel):
     animated: str = 'none'
     source_handle: str | None = None
     target_handle: str | None = None
+    waypoints: list | None = None
 
     @field_validator('animated', mode='before')
     @classmethod

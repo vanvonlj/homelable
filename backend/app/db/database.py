@@ -61,6 +61,8 @@ async def init_db() -> None:
             await conn.exec_driver_sql("ALTER TABLE nodes ADD COLUMN bottom_handles INTEGER NOT NULL DEFAULT 1")
         with suppress(OperationalError):
             await conn.exec_driver_sql("ALTER TABLE pending_devices ADD COLUMN discovery_source TEXT")
+        with suppress(OperationalError):
+            await conn.exec_driver_sql("ALTER TABLE edges ADD COLUMN waypoints JSON")
         # Migrate animated column from boolean (0/1) to string ('none'/'snake')
         with suppress(OperationalError):
             await conn.exec_driver_sql("UPDATE edges SET animated = 'snake' WHERE animated = '1' OR animated = 1")

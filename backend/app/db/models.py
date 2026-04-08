@@ -69,6 +69,7 @@ class Edge(Base):
     animated: Mapped[str] = mapped_column(String, nullable=False, default='none')
     source_handle: Mapped[str | None] = mapped_column(String)
     target_handle: Mapped[str | None] = mapped_column(String)
+    waypoints: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
