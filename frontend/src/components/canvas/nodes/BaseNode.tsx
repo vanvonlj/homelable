@@ -39,11 +39,13 @@ export function BaseNode({ id, data, selected, icon: typeIcon, width, height }: 
       style={{
         background: colors.background,
         borderColor: colors.border,
-        borderWidth: selected ? 2 : 1,
-        boxShadow: isOnline
+        borderWidth: 1,
+        boxShadow: isOnline && selected
+          ? `0 0 0 1px ${colors.border}, 0 0 10px ${colors.border}2e, 0 0 3px ${colors.border}1a`
+          : isOnline
           ? `0 0 10px ${colors.border}2e, 0 0 3px ${colors.border}1a`
           : selected
-          ? `0 0 8px ${colors.border}44`
+          ? `0 0 0 1px ${colors.border}, 0 0 8px ${colors.border}44`
           : 'none',
         opacity: data.status === 'offline' ? 0.55 : 1,
         minWidth: 140,
@@ -55,7 +57,7 @@ export function BaseNode({ id, data, selected, icon: typeIcon, width, height }: 
         isVisible={selected}
         minWidth={140}
         minHeight={50}
-        lineStyle={{ borderColor: colors.border, borderWidth: 1 }}
+        lineStyle={{ borderColor: 'transparent' }}
         handleStyle={{ borderColor: colors.border, background: colors.border, width: 8, height: 8 }}
       />
       <Handle
