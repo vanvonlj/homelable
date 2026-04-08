@@ -187,4 +187,55 @@ describe('EdgeModal', () => {
     expect(onDelete).toHaveBeenCalledOnce()
     expect(onClose).toHaveBeenCalledOnce()
   })
+
+  // ── Waypoints / Clear path ────────────────────────────────────────────────
+
+  it('does not show Clear path button when onClearWaypoints is not provided', () => {
+    render(<EdgeModal open onClose={vi.fn()} onSubmit={vi.fn()} initial={{ type: 'ethernet', waypoints: [{ x: 1, y: 2 }] }} />)
+    expect(screen.queryByText(/Clear path/)).toBeNull()
+  })
+
+  it('does not show Clear path button when waypoints are empty', () => {
+    render(<EdgeModal open onClose={vi.fn()} onSubmit={vi.fn()} onClearWaypoints={vi.fn()} initial={{ type: 'ethernet', waypoints: [] }} />)
+    expect(screen.queryByText(/Clear path/)).toBeNull()
+  })
+
+  it('does not show Clear path button when no initial waypoints', () => {
+    render(<EdgeModal open onClose={vi.fn()} onSubmit={vi.fn()} onClearWaypoints={vi.fn()} />)
+    expect(screen.queryByText(/Clear path/)).toBeNull()
+  })
+
+  it('shows Clear path button with count when waypoints exist', () => {
+    render(
+      <EdgeModal
+        open onClose={vi.fn()} onSubmit={vi.fn()} onClearWaypoints={vi.fn()}
+        initial={{ type: 'ethernet', waypoints: [{ x: 1, y: 2 }, { x: 3, y: 4 }] }}
+      />,
+    )
+    expect(screen.getByText('Clear path (2 points)')).toBeDefined()
+  })
+
+  it('shows singular "point" when only one waypoint', () => {
+    render(
+      <EdgeModal
+        open onClose={vi.fn()} onSubmit={vi.fn()} onClearWaypoints={vi.fn()}
+        initial={{ type: 'ethernet', waypoints: [{ x: 1, y: 2 }] }}
+      />,
+    )
+    expect(screen.getByText('Clear path (1 point)')).toBeDefined()
+  })
+
+  it('calls onClearWaypoints and onClose when Clear path is clicked', () => {
+    const onClearWaypoints = vi.fn()
+    const onClose = vi.fn()
+    render(
+      <EdgeModal
+        open onClose={onClose} onSubmit={vi.fn()} onClearWaypoints={onClearWaypoints}
+        initial={{ type: 'ethernet', waypoints: [{ x: 1, y: 2 }] }}
+      />,
+    )
+    fireEvent.click(screen.getByText('Clear path (1 point)'))
+    expect(onClearWaypoints).toHaveBeenCalledOnce()
+    expect(onClose).toHaveBeenCalledOnce()
+  })
 })
