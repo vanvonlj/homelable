@@ -44,7 +44,7 @@ export interface ApiEdge {
   speed?: string | null
   custom_color?: string | null
   path_style?: string | null
-  animated?: boolean | 'snake' | 'flow' | 'none'
+  animated?: boolean | 'snake' | 'flow' | 'basic' | 'none'
   source_handle?: string | null
   target_handle?: string | null
   waypoints?: Waypoint[] | null
