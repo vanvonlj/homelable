@@ -379,6 +379,16 @@ async def test_save_canvas_persists_animated_edge(client: AsyncClient, headers: 
     assert canvas["edges"][0]["animated"] == "snake"
 
 
+async def test_save_canvas_persists_animated_basic(client: AsyncClient, headers: dict):
+    n1 = node_payload()
+    n2 = node_payload()
+    e1 = edge_payload(n1["id"], n2["id"], animated="basic")
+    await client.post("/api/v1/canvas/save", json={"nodes": [n1, n2], "edges": [e1], "viewport": {}}, headers=headers)
+
+    canvas = (await client.get("/api/v1/canvas", headers=headers)).json()
+    assert canvas["edges"][0]["animated"] == "basic"
+
+
 # ── node fields ───────────────────────────────────────────────────────────────
 
 async def test_save_canvas_persists_all_node_fields(client: AsyncClient, headers: dict):

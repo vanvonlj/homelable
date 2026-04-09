@@ -122,6 +122,21 @@ describe('EdgeModal', () => {
     expect(onSubmit.mock.calls[0][0].animated).toBe('flow')
   })
 
+  it('selecting Basic sends animated: "basic"', () => {
+    const onSubmit = vi.fn()
+    render(<EdgeModal open onClose={vi.fn()} onSubmit={onSubmit} />)
+    fireEvent.click(screen.getByText('Basic'))
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    expect(onSubmit.mock.calls[0][0].animated).toBe('basic')
+  })
+
+  it('pre-fills animation from initial "basic" string', () => {
+    const onSubmit = vi.fn()
+    render(<EdgeModal open onClose={vi.fn()} onSubmit={onSubmit} initial={{ animated: 'basic' }} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
+    expect(onSubmit.mock.calls[0][0].animated).toBe('basic')
+  })
+
   it('selecting None after Snake omits animated from payload', () => {
     const onSubmit = vi.fn()
     render(<EdgeModal open onClose={vi.fn()} onSubmit={onSubmit} />)

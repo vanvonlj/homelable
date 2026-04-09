@@ -107,7 +107,7 @@ export interface EdgeData extends Record<string, unknown> {
   speed?: string
   custom_color?: string
   path_style?: EdgePathStyle
-  animated?: boolean | 'snake' | 'flow' | 'none'
+  animated?: boolean | 'snake' | 'flow' | 'basic' | 'none'
   waypoints?: Waypoint[]
 }
 

@@ -233,9 +233,10 @@ export function HomelableEdge({ id, source, target, sourceX, sourceY, targetX, t
     ...(selected ? { stroke: theme.colors.edgeSelectedColor, filter: `drop-shadow(0 0 4px ${theme.colors.edgeSelectedColor}88)` } : {}),
   }
 
-  const animMode: 'none' | 'snake' | 'flow' =
+  const animMode: 'none' | 'snake' | 'flow' | 'basic' =
     data?.animated === true || data?.animated === 'snake' ? 'snake' :
-    data?.animated === 'flow' ? 'flow' : 'none'
+    data?.animated === 'flow' ? 'flow' :
+    data?.animated === 'basic' ? 'basic' : 'none'
 
   const animColor = customColor ?? (edgeType === 'vlan' ? getVlanColor(data?.vlan_id as number | undefined) : edgeColors[edgeType as keyof typeof edgeColors] as string)
 
@@ -245,7 +246,7 @@ export function HomelableEdge({ id, source, target, sourceX, sourceY, targetX, t
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} style={style} interactionWidth={16} />
+      <BaseEdge id={id} path={edgePath} style={style} interactionWidth={16} animated={animMode === 'basic'} />
 
       {animMode === 'snake' && (
         <path

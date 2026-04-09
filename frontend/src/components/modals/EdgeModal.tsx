@@ -10,11 +10,12 @@ import { EDGE_DEFAULT_COLORS } from '@/utils/edgeColors'
 
 const EDGE_TYPES = Object.entries(EDGE_TYPE_LABELS) as [EdgeType, string][]
 
-type AnimMode = 'none' | 'snake' | 'flow'
+type AnimMode = 'none' | 'basic' | 'snake' | 'flow'
 
 function toAnimMode(v: EdgeData['animated']): AnimMode {
   if (v === true || v === 'snake') return 'snake'
   if (v === 'flow') return 'flow'
+  if (v === 'basic') return 'basic'
   return 'none'
 }
 
@@ -127,7 +128,7 @@ export function EdgeModal({ open, onClose, onSubmit, onDelete, onClearWaypoints,
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground">Animation</Label>
             <div className="flex rounded-md overflow-hidden border border-[#30363d]">
-              {(['none', 'snake', 'flow'] as AnimMode[]).map((mode, i) => (
+              {(['none', 'basic', 'snake', 'flow'] as AnimMode[]).map((mode, i) => (
                 <button
                   key={mode}
                   type="button"
@@ -136,10 +137,10 @@ export function EdgeModal({ open, onClose, onSubmit, onDelete, onClearWaypoints,
                   style={{
                     background: animation === mode ? '#00d4ff22' : '#21262d',
                     color: animation === mode ? '#00d4ff' : '#8b949e',
-                    borderRight: i < 2 ? '1px solid #30363d' : undefined,
+                    borderRight: i < 3 ? '1px solid #30363d' : undefined,
                   }}
                 >
-                  {mode === 'none' ? 'None' : mode === 'snake' ? 'Snake' : 'Flow'}
+                  {mode === 'none' ? 'None' : mode === 'basic' ? 'Basic' : mode === 'snake' ? 'Snake' : 'Flow'}
                 </button>
               ))}
             </div>
