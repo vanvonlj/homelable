@@ -17,7 +17,7 @@ class EdgeBase(BaseModel):
     animated: str = 'none'
     source_handle: str | None = None
     target_handle: str | None = None
-    waypoints: list | None = None
+    waypoints: list[dict[str, float]] | None = None
 
     @field_validator('animated', mode='before')
     @classmethod
@@ -39,7 +39,7 @@ class EdgeUpdate(BaseModel):
     animated: str | None = None
     source_handle: str | None = None
     target_handle: str | None = None
-    waypoints: list | None = None
+    waypoints: list[dict[str, float]] | None = None
 
     @field_validator('animated', mode='before')
     @classmethod
