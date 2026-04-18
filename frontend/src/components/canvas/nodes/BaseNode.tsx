@@ -1,4 +1,4 @@
-import { createElement, useEffect } from 'react'
+import { createElement, useEffect, useMemo } from 'react'
 import { Handle, Position, NodeResizer, useUpdateNodeInternals, useViewport, type NodeProps, type Node } from '@xyflow/react'
 import { Cpu, MemoryStick, HardDrive, type LucideIcon } from 'lucide-react'
 import type { NodeData } from '@/types'
@@ -25,7 +25,7 @@ export function BaseNode({ id, data, selected, icon: typeIcon, width, height }: 
   useEffect(() => { updateNodeInternals(id) }, [data.bottom_handles, id, updateNodeInternals])
 
   const { zoom } = useViewport()
-  const borderWidth = Math.max(1, 1 / zoom)
+  const borderWidth = useMemo(() => Math.max(1, 1 / zoom), [zoom])
 
   const activeTheme = useThemeStore((s) => s.activeTheme)
   const hideIp = useCanvasStore((s) => s.hideIp)
@@ -49,11 +49,11 @@ export function BaseNode({ id, data, selected, icon: typeIcon, width, height }: 
         borderColor: colors.border,
         borderWidth,
         boxShadow: isOnline && selected
-          ? `0 0 0 1px ${colors.border}, 0 0 10px ${colors.border}2e, 0 0 3px ${colors.border}1a`
+          ? `0 0 0 ${borderWidth}px ${colors.border}, 0 0 10px ${colors.border}2e, 0 0 3px ${colors.border}1a`
           : isOnline
           ? `0 0 10px ${colors.border}2e, 0 0 3px ${colors.border}1a`
           : selected
-          ? `0 0 0 1px ${colors.border}, 0 0 8px ${colors.border}44`
+          ? `0 0 0 ${borderWidth}px ${colors.border}, 0 0 8px ${colors.border}44`
           : 'none',
         opacity: data.status === 'offline' ? 0.55 : 1,
         minWidth: 140,
