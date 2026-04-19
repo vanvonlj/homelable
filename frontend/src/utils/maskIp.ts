@@ -43,8 +43,3 @@ export function splitIps(ip: string): string[] {
 export function primaryIp(ip: string): string {
   return splitIps(ip)[0] ?? ''
 }
-
-export function primaryIp(ip: string): string {
-  if (!ip?.trim()) return ''
-  return ip.split(',')[0].trim()
-}
