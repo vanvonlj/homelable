@@ -42,8 +42,6 @@ interface NodeModalProps {
 
 const CHILD_TYPES: NodeType[] = ['vm', 'lxc']
 
-// NodeModal is always mounted with a key that changes on open/edit, so useState
-// initial value is enough — no need for a reset effect.
 export function NodeModal({ open, onClose, onSubmit, initial, title = 'Add Node', proxmoxNodes = [] }: NodeModalProps) {
   const [form, setForm] = useState<Partial<NodeData>>({ ...DEFAULT_DATA, ...initial })
   const [iconSearch, setIconSearch] = useState('')
