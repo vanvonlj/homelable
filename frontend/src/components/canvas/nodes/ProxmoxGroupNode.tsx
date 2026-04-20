@@ -1,7 +1,9 @@
+import { createElement } from 'react'
 import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/react'
 import { Layers } from 'lucide-react'
 import type { NodeData } from '@/types'
 import { resolveNodeColors } from '@/utils/nodeColors'
+import { resolveNodeIcon } from '@/utils/nodeIcons'
 import { resolvePropertyIcon } from '@/utils/propertyIcons'
 import { useThemeStore } from '@/stores/themeStore'
 import { THEMES } from '@/utils/themes'
@@ -42,6 +44,7 @@ export function ProxmoxGroupNode(props: NodeProps<Node<NodeData>>) {
   const isOnline = data.status === 'online'
   const glow = colors.border
   const proxmoxAccent = theme.colors.nodeAccents.proxmox.border
+  const resolvedIcon = resolveNodeIcon(Layers, data.custom_icon)
 
   return (
     <>
@@ -81,7 +84,7 @@ export function ProxmoxGroupNode(props: NodeProps<Node<NodeData>>) {
               background: theme.colors.nodeIconBackground,
             }}
           >
-            <Layers size={12} />
+            {createElement(resolvedIcon, { size: 12 })}
           </div>
           <div className="flex flex-col min-w-0 flex-1">
             <span
