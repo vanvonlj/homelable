@@ -1,7 +1,10 @@
+import { createElement } from 'react'
 import { Handle, Position, NodeResizer, type NodeProps, type Node } from '@xyflow/react'
 import { Layers } from 'lucide-react'
 import type { NodeData } from '@/types'
 import { resolveNodeColors } from '@/utils/nodeColors'
+import { resolveNodeIcon } from '@/utils/nodeIcons'
+import { resolvePropertyIcon } from '@/utils/propertyIcons'
 import { useThemeStore } from '@/stores/themeStore'
 import { THEMES } from '@/utils/themes'
 import { BaseNode } from './BaseNode'
@@ -41,6 +44,7 @@ export function ProxmoxGroupNode(props: NodeProps<Node<NodeData>>) {
   const isOnline = data.status === 'online'
   const glow = colors.border
   const proxmoxAccent = theme.colors.nodeAccents.proxmox.border
+  const resolvedIcon = resolveNodeIcon(Layers, data.custom_icon)
 
   return (
     <>
@@ -80,7 +84,7 @@ export function ProxmoxGroupNode(props: NodeProps<Node<NodeData>>) {
               background: theme.colors.nodeIconBackground,
             }}
           >
-            <Layers size={12} />
+            {createElement(resolvedIcon, { size: 12 })}
           </div>
           <div className="flex flex-col min-w-0 flex-1">
             <span
@@ -105,6 +109,27 @@ export function ProxmoxGroupNode(props: NodeProps<Node<NodeData>>) {
             title={data.status}
           />
         </div>
+
+        {/* Properties */}
+        {data.properties?.filter((p) => p.visible).map((prop, i, arr) => {
+          const Icon = resolvePropertyIcon(prop.icon)
+          return (
+            <div
+              key={prop.key}
+              className="flex items-center gap-1 font-mono text-[10px] min-w-0 overflow-hidden px-2.5 shrink-0"
+              style={{
+                color: theme.colors.nodeSubtextColor,
+                paddingTop: i === 0 ? 4 : 2,
+                paddingBottom: i === arr.length - 1 ? 4 : 2,
+                borderTop: i === 0 ? `1px solid ${glow}22` : undefined,
+              }}
+            >
+              {Icon && <Icon size={9} className="shrink-0" />}
+              <span className="truncate max-w-[60px] shrink-0" title={prop.key}>{prop.key}</span>
+              <span className="truncate min-w-0" title={prop.value}>· {prop.value}</span>
+            </div>
+          )
+        })}
 
         {/* Inner area — React Flow places children here */}
         <div className="flex-1 relative" />
