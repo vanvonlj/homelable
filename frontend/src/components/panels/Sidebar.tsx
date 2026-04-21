@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Plus, Save, ScanLine, ChevronLeft, ChevronRight, LayoutDashboard, Clock, EyeOff, Trash2, RefreshCw, Loader2, Square, Eye, Settings, StopCircle, X } from 'lucide-react'
+import { Plus, Save, ScanLine, ChevronLeft, ChevronRight, LayoutDashboard, Clock, EyeOff, Trash2, RefreshCw, Loader2, Square, Eye, Settings, StopCircle, X, LogOut } from 'lucide-react'
 import { Logo } from '@/components/ui/Logo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCanvasStore } from '@/stores/canvasStore'
+import { useAuthStore } from '@/stores/authStore'
 import { scanApi, settingsApi } from '@/api/client'
 import { toast } from 'sonner'
 import { useLatestRelease } from '@/hooks/useLatestRelease'
@@ -43,6 +44,7 @@ interface SidebarProps {
 export function Sidebar({ onAddNode, onAddGroupRect, onScan, onSave, onNodeApproved, forceView, highlightPendingId }: SidebarProps) {
   const [_collapsed, setCollapsed] = useState(false)
   const [_activeView, setActiveView] = useState<SidebarView>('canvas')
+  const logout = useAuthStore((s) => s.logout)
 
   // When forceView is set, override local state without useEffect
   const collapsed = forceView ? false : _collapsed
@@ -150,6 +152,14 @@ export function Sidebar({ onAddNode, onAddGroupRect, onScan, onSave, onNodeAppro
             collapsed={collapsed}
             active={activeView === 'settings'}
             onClick={() => setActiveView((v) => v === 'settings' ? 'canvas' : 'settings')}
+          />
+        )}
+        {!STANDALONE && (
+          <SidebarItem
+            icon={LogOut}
+            label="Logout"
+            collapsed={collapsed}
+            onClick={logout}
           />
         )}
       </div>
