@@ -671,27 +671,53 @@ function ServiceBadge({ svc, host, onEdit, onRemove }: { svc: ServiceInfo; host?
   const pathMaxWidth = Math.max(0, maxTotalWidth - nameWidth - 60);
   const showPath = pathLabel && pathMaxWidth > 30;
 
+  const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; text: string }>({ visible: false, x: 0, y: 0, text: '' });
+
   return (
     <div
       className="group flex items-center border rounded-md text-xs transition-colors px-2 py-1.5 min-w-0"
       style={{ background: '#21262d', borderColor: '#30363d', position: 'relative' }}
     >
       <span className="shrink-0 w-1.5 h-1.5 rounded-full mr-1" style={{ backgroundColor: color }} />
-      <span
-        className="font-medium truncate flex-grow min-w-0"
-        style={{ color, marginRight: 12, maxWidth: '100%' }}
-        title={svc.service_name}
-        tabIndex={0}
-        aria-label={svc.service_name}
-      >
-        {svc.service_name}
-      </span>
+		{url ? (
+		<a
+			href={url}
+			target="_blank"
+			rel="noopener noreferrer"
+			className="font-medium truncate flex-grow min-w-0"
+			style={{ color, marginRight: 12, maxWidth: '100%' }}
+			title={svc.service_name}
+			tabIndex={0}
+			aria-label={svc.service_name}
+			onClick={e => e.stopPropagation()}
+		>
+			{svc.service_name}
+		</a>
+		) : (
+		<span
+			className="font-medium truncate flex-grow min-w-0"
+			style={{ color, marginRight: 12, maxWidth: '100%' }}
+			title={svc.service_name}
+			tabIndex={0}
+			aria-label={svc.service_name}
+		>
+			{svc.service_name}
+		</span>
+		)}
       <div className="flex items-center gap-1 shrink-0" style={{ maxWidth: 180, minWidth: 0 }}>
         {showPath && (
           <span
             className="truncate text-[#8b949e] text-right"
             style={{ minWidth: 0, maxWidth: pathMaxWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
-            title={pathLabel}
+            onMouseEnter={e => {
+				if (e.currentTarget.offsetWidth < e.currentTarget.scrollWidth) {
+					setTooltip({ visible: true, x: e.clientX, y: e.clientY, text: pathLabel });
+				}
+			}}
+			onMouseMove={e => {
+				setTooltip(t => t.visible ? { ...t, x: e.clientX, y: e.clientY } : t);
+			}}
+			onMouseLeave={() => setTooltip(t => ({ ...t, visible: false }))}
             tabIndex={0}
             aria-label={pathLabel}
           >
@@ -701,9 +727,22 @@ function ServiceBadge({ svc, host, onEdit, onRemove }: { svc: ServiceInfo; host?
         {hasPort && (
           <span className="font-mono text-[#8b949e]" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{portLabel}/{svc.protocol}</span>
         )}
-        <span className="inline-flex w-2.5 h-2.5 items-center justify-center shrink-0" aria-hidden="true">
-          {url ? <ExternalLink size={10} className="text-muted-foreground" /> : <span style={{ width: 10, display: 'inline-block' }} />}
-        </span>
+		{url ? (
+		  <a
+			href={url}
+			target="_blank"
+			rel="noopener noreferrer"
+			className="inline-flex w-2.5 h-2.5 items-center justify-center shrink-0"
+			tabIndex={0}
+			aria-label="Open service link"
+			style={{ color: 'inherit' }}
+			onClick={e => e.stopPropagation()}
+		  >
+			<ExternalLink size={10} className="text-muted-foreground" />
+		  </a>
+		) : (
+		  <span style={{ width: 10, display: 'inline-block' }} />
+		)}
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }}
           className="opacity-100 transition-opacity text-[#8b949e] hover:text-[#00d4ff] ml-0.5"
@@ -719,24 +758,28 @@ function ServiceBadge({ svc, host, onEdit, onRemove }: { svc: ServiceInfo; host?
           <X size={10} />
         </button>
       </div>
-      {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            right: 80,
-            zIndex: 1,
-            opacity: 0,
-          }}
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-      )}
+
+	  {tooltip.visible && (
+		<div
+			style={{
+			position: 'fixed',
+			left: tooltip.x - 50,
+			top: tooltip.y + 10,
+			background: '#222',
+			color: '#fff',
+			padding: '2px 8px',
+			borderRadius: 4,
+			fontSize: 12,
+			zIndex: 9999,
+			pointerEvents: 'none',
+			boxShadow: '0 2px 8px #0008',
+			whiteSpace: 'nowrap',
+      		overflow: 'visible'
+			}}
+		>
+			{tooltip.text}
+		</div>
+	)}
     </div>
   );
 }
