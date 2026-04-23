@@ -1,0 +1,58 @@
+name: Build MCP
+
+# Upstream's docker-publish.yml only builds backend + frontend. This fork
+# adds a manually-triggered workflow that builds the MCP image at an
+# arbitrary upstream tag and publishes it to ghcr.io/<fork-owner>/homelable-mcp.
+#
+# Run from the gh CLI:
+#   gh workflow run build-mcp.yml -f version=1.11.0 --repo vanvonlj/homelable
+#
+# Or from the Actions tab → Build MCP → Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Homelable version to build (e.g. 1.11.0). Must match an existing upstream v<version> tag.'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout upstream at tag
+        uses: actions/checkout@v4
+        with:
+          repository: Pouzor/homelable
+          ref: v${{ inputs.version }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./mcp
+          file: mcp/Dockerfile.mcp
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/homelable-mcp:${{ inputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/Pouzor/homelable
+            org.opencontainers.image.version=${{ inputs.version }}
+            org.opencontainers.image.description=MCP server for Pouzor/homelable, built from upstream v${{ inputs.version }} in a fork because upstream CI does not publish this image.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
