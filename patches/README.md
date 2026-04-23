@@ -45,6 +45,5 @@ any MCP client.
 so the session manager owns the response cycle directly, without FastAPI's
 route handler interfering.
 
-**Upstream status:** <!-- update this when we file the PR -->
-PR filed at https://github.com/Pouzor/homelable/pull/<TBD>.
+**Upstream status:** PR filed at https://github.com/Pouzor/homelable/pull/105.
 Remove this patch once merged and a release containing the fix is tagged.
