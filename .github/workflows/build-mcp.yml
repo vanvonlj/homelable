@@ -2,12 +2,16 @@ name: Build MCP
 
 # Upstream's docker-publish.yml only builds backend + frontend. This fork
 # adds a manually-triggered workflow that builds the MCP image at an
-# arbitrary upstream tag and publishes it to ghcr.io/<fork-owner>/homelable-mcp.
+# arbitrary upstream tag, optionally applies patches from ../patches/, and
+# publishes to ghcr.io/<fork-owner>/homelable-mcp.
 #
 # Run from the gh CLI:
 #   gh workflow run build-mcp.yml -f version=1.11.0 --repo vanvonlj/homelable
 #
-# Or from the Actions tab → Build MCP → Run workflow.
+# If any .patch files in patches/ apply cleanly, the resulting image tag
+# gets a `-patched` suffix (e.g. 1.11.0-patched). If all patches are either
+# no-ops or no longer apply (upstream fixed the bug), the image tag has no
+# suffix. See patches/README.md for the design rationale.
 
 on:
   workflow_dispatch:
@@ -25,11 +29,60 @@ jobs:
       packages: write
 
     steps:
+      - name: Checkout fork (for patches)
+        uses: actions/checkout@v4
+        with:
+          path: fork
+
       - name: Checkout upstream at tag
         uses: actions/checkout@v4
         with:
           repository: Pouzor/homelable
           ref: v${{ inputs.version }}
+          path: upstream
+
+      - name: Apply patches (or detect upstream fix)
+        id: patches
+        run: |
+          set -eu
+          cd upstream
+          applied=0
+          skipped=0
+          failed=0
+          for patch in ../fork/patches/*.patch; do
+            [ -f "$patch" ] || continue
+            name=$(basename "$patch")
+            echo "::group::$name"
+            if patch --dry-run -p1 --silent < "$patch" >/dev/null 2>&1; then
+              patch -p1 < "$patch"
+              echo "::notice::$name applied"
+              applied=$((applied + 1))
+            elif patch --dry-run -p1 -R --silent < "$patch" >/dev/null 2>&1; then
+              # Patch applies in reverse → upstream already contains our fix.
+              echo "::notice::$name skipped — upstream already contains this fix"
+              skipped=$((skipped + 1))
+            else
+              # Neither direction applies → hunks conflict. Likely upstream
+              # restructured the target file in a way we need to review.
+              echo "::error::$name failed to apply and is not already present. Upstream may have restructured the target file — review and update the patch."
+              patch --dry-run -p1 < "$patch" || true
+              failed=$((failed + 1))
+            fi
+            echo "::endgroup::"
+          done
+
+          if [ "$failed" -gt 0 ]; then
+            echo "$failed patch(es) failed to apply — aborting build."
+            exit 1
+          fi
+
+          if [ "$applied" -gt 0 ]; then
+            echo "image_tag=${{ inputs.version }}-patched" >> "$GITHUB_OUTPUT"
+            echo "patch_status=$applied applied, $skipped skipped" >> "$GITHUB_OUTPUT"
+          else
+            echo "image_tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "patch_status=none required ($skipped already upstream)" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -44,15 +97,23 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./mcp
-          file: mcp/Dockerfile.mcp
+          context: upstream/mcp
+          file: upstream/mcp/Dockerfile.mcp
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/homelable-mcp:${{ inputs.version }}
+            ghcr.io/${{ github.repository_owner }}/homelable-mcp:${{ steps.patches.outputs.image_tag }}
           labels: |
             org.opencontainers.image.source=https://github.com/Pouzor/homelable
             org.opencontainers.image.version=${{ inputs.version }}
-            org.opencontainers.image.description=MCP server for Pouzor/homelable, built from upstream v${{ inputs.version }} in a fork because upstream CI does not publish this image.
+            org.opencontainers.image.description=MCP server for Pouzor/homelable, built from upstream v${{ inputs.version }}. Patches: ${{ steps.patches.outputs.patch_status }}.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "### Build MCP — complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Upstream tag:** v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image pushed:** ghcr.io/${{ github.repository_owner }}/homelable-mcp:${{ steps.patches.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Patches:** ${{ steps.patches.outputs.patch_status }}" >> $GITHUB_STEP_SUMMARY
