@@ -60,7 +60,7 @@ export function EdgeModal({ open, onClose, onSubmit, onDelete, onClearWaypoints,
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="bg-[#161b22] border-[#30363d] text-foreground max-w-xs" closeIconProps={{ className: modalStyles['modal-close-pointer'] }}>
+      <DialogContent className="bg-[#161b22] border-[#30363d] text-foreground max-w-xs">
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold">{title}</DialogTitle>
         </DialogHeader>
