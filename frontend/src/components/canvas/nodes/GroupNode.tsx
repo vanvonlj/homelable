@@ -1,11 +1,16 @@
 import { useState } from 'react'
-import { type NodeProps, type Node, NodeResizer } from '@xyflow/react'
-import { Layers, Pencil, Check, X } from 'lucide-react'
+import { type NodeProps, type Node, NodeResizer, Handle, Position } from '@xyflow/react'
+import { Layers, Pencil, Check, X, ChevronDown } from 'lucide-react'
 import { useCanvasStore } from '@/stores/canvasStore'
+import { useThemeStore } from '@/stores/themeStore'
+import { THEMES } from '@/utils/themes'
 import { STATUS_COLORS, type NodeData } from '@/types'
 
 export function GroupNode({ id, data, selected }: NodeProps<Node<NodeData>>) {
-  const { nodes, updateNode, snapshotHistory } = useCanvasStore()
+  const { nodes, updateNode, snapshotHistory, toggleNodeCollapsed } = useCanvasStore()
+  const isCollapsed = data.collapsed ?? false
+  const activeTheme = useThemeStore((s) => s.activeTheme)
+  const theme = THEMES[activeTheme]
   const showBorder = data.custom_colors?.show_border !== false
   const isVisible = showBorder || selected
 
@@ -48,6 +53,29 @@ export function GroupNode({ id, data, selected }: NodeProps<Node<NodeData>>) {
         lineStyle={{ stroke: '#00d4ff', strokeWidth: 1 }}
         handleStyle={{ fill: '#00d4ff', stroke: '#0d1117', width: 8, height: 8, borderRadius: 2 }}
       />
+
+      {/* 4 snap-point handles — one per side. Source + invisible target overlay for each. */}
+      {([
+        ['group-top', Position.Top],
+        ['group-right', Position.Right],
+        ['group-bottom', Position.Bottom],
+        ['group-left', Position.Left],
+      ] as const).map(([hid, pos]) => (
+        <span key={hid}>
+          <Handle
+            type="source"
+            position={pos}
+            id={hid}
+            style={{ background: theme.colors.handleBackground, borderColor: theme.colors.handleBorder }}
+          />
+          <Handle
+            type="target"
+            position={pos}
+            id={`${hid}-t`}
+            style={{ opacity: 0, width: 12, height: 12 }}
+          />
+        </span>
+      ))}
 
       {/* Header */}
       {isVisible && (
@@ -108,6 +136,28 @@ export function GroupNode({ id, data, selected }: NodeProps<Node<NodeData>>) {
               title="Rename group"
             >
               <Pencil size={10} />
+            </button>
+          )}
+
+          {/* Collapse / expand toggle */}
+          {children.length > 0 && (
+            <button
+              className="nodrag"
+              onClick={(e) => { e.stopPropagation(); toggleNodeCollapsed(id) }}
+              title={isCollapsed ? `Show ${children.length} hidden items` : `Hide ${children.length} items`}
+              style={{
+                color: '#00d4ff',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 1,
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'transform 0.2s ease-out',
+                transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+              }}
+            >
+              <ChevronDown size={11} />
             </button>
           )}
 

@@ -1,11 +1,13 @@
-import { IspNode, RouterNode, SwitchNode, ServerNode, VmNode, LxcNode, NasNode, IotNode, ApNode, CameraNode, PrinterNode, ComputerNode, CplNode, DockerHostNode, DockerContainerNode, GenericNode } from './index'
+import { IspNode, RouterNode, FirewallNode, SwitchNode, ServerNode, VmNode, LxcNode, NasNode, IotNode, ApNode, CameraNode, PrinterNode, ComputerNode, LaptopNode, MobileNode, CplNode, DockerHostNode, DockerContainerNode, GenericNode, ZigbeeCoordinatorNode, ZigbeeRouterNode, ZigbeeEndDeviceNode } from './index'
 import { ProxmoxGroupNode } from './ProxmoxGroupNode'
 import { GroupRectNode } from './GroupRectNode'
 import { GroupNode } from './GroupNode'
+import { TextNode } from './TextNode'
 
 export const nodeTypes = {
   isp: IspNode,
   router: RouterNode,
+  firewall: FirewallNode,
   switch: SwitchNode,
   server: ServerNode,
   proxmox: ProxmoxGroupNode,
@@ -17,10 +19,16 @@ export const nodeTypes = {
   camera: CameraNode,
   printer: PrinterNode,
   computer: ComputerNode,
+  laptop: LaptopNode,
+  mobile: MobileNode,
   cpl: CplNode,
   docker_host: DockerHostNode,
   docker_container: DockerContainerNode,
   generic: GenericNode,
   groupRect: GroupRectNode,
   group: GroupNode,
+  text: TextNode,
+  zigbee_coordinator: ZigbeeCoordinatorNode,
+  zigbee_router: ZigbeeRouterNode,
+  zigbee_enddevice: ZigbeeEndDeviceNode,
 }

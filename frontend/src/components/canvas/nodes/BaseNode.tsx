@@ -1,15 +1,17 @@
 import { createElement, useEffect, useMemo } from 'react'
 import { Handle, Position, NodeResizer, useUpdateNodeInternals, useViewport, type NodeProps, type Node } from '@xyflow/react'
-import { Cpu, MemoryStick, HardDrive, type LucideIcon } from 'lucide-react'
+import { Cpu, MemoryStick, HardDrive, ExternalLink, type LucideIcon } from 'lucide-react'
 import type { NodeData } from '@/types'
 import { resolveNodeColors } from '@/utils/nodeColors'
-import { resolveNodeIcon } from '@/utils/nodeIcons'
+import { resolveNodeIcon, isBrandIconKey } from '@/utils/nodeIcons'
+import { NodeIcon } from '@/components/ui/NodeIcon'
 import { resolvePropertyIcon } from '@/utils/propertyIcons'
 import { useThemeStore } from '@/stores/themeStore'
 import { THEMES } from '@/utils/themes'
 import { useCanvasStore } from '@/stores/canvasStore'
-import { maskIp, splitIps } from '@/utils/maskIp'
-import { BOTTOM_HANDLE_IDS, BOTTOM_HANDLE_POSITIONS } from '@/utils/handleUtils'
+import { maskIp, primaryIp, splitIps } from '@/utils/maskIp'
+import { bottomHandleId, bottomHandlePositions, clampBottomHandles } from '@/utils/handleUtils'
+import { getServiceUrl } from '@/utils/serviceUrl'
 
 interface BaseNodeProps extends NodeProps<Node<NodeData>> {
   icon: LucideIcon
@@ -35,6 +37,9 @@ export function BaseNode({ id, data, selected, icon: typeIcon, width, height }: 
   const colors = resolveNodeColors(data, activeTheme)
   const statusColor = theme.colors.statusColors[data.status]
   const isOnline = data.status === 'online'
+  const services = data.services ?? []
+  const showServices = data.custom_colors?.show_services === true
+  const serviceHost = data.ip ? primaryIp(data.ip) : data.hostname
 
   // Properties: prefer new system; fall back to legacy hardware fields for unmigrated nodes
   const visibleProperties = data.properties?.filter((p) => p.visible) ?? null
@@ -56,7 +61,8 @@ export function BaseNode({ id, data, selected, icon: typeIcon, width, height }: 
           ? `0 0 0 ${borderWidth}px ${colors.border}, 0 0 8px ${colors.border}44`
           : 'none',
         opacity: data.status === 'offline' ? 0.55 : 1,
-        minWidth: 140,
+        // Grow node width when many bottom handles so each stays clickable (~14px slot).
+        minWidth: Math.max(140, clampBottomHandles(data.bottom_handles ?? 1) * 14),
         width: width ? '100%' : undefined,
         height: height ? '100%' : undefined,
       }}
@@ -93,7 +99,9 @@ export function BaseNode({ id, data, selected, icon: typeIcon, width, height }: 
             background: theme.colors.nodeIconBackground,
           }}
         >
-          {createElement(resolvedIcon, { size: 15 })}
+          {isBrandIconKey(data.custom_icon)
+            ? <NodeIcon typeIcon={typeIcon} customIconKey={data.custom_icon} size={15} />
+            : createElement(resolvedIcon, { size: 15 })}
         </div>
 
         {/* Label + IP */}
@@ -137,6 +145,74 @@ export function BaseNode({ id, data, selected, icon: typeIcon, width, height }: 
         </>
       )}
 
+      {showServices && services.length > 0 && (
+        <>
+          <div style={{ height: 1, background: `${colors.border}44`, margin: '0 8px' }} />
+          <div className="flex flex-col gap-1 px-2.5 py-1.5 overflow-hidden">
+            {services.map((svc, idx) => {
+              const url = getServiceUrl(svc, serviceHost)
+              const row = (
+                <div
+                  className="nodrag flex items-center justify-between gap-2 px-1.5 py-1 rounded text-[10px] min-w-0 overflow-hidden"
+                  style={{
+                    background: theme.colors.nodeIconBackground,
+                    color: theme.colors.nodeSubtextColor,
+                  }}
+                >
+                  
+                  <div className="flex items-center justify-between gap-2 w-full min-w-0">
+                    {/* LEFT: service name */}
+                    <span
+                      className="font-medium truncate"
+                      style={{ minWidth: 0 }}
+                      title={svc.service_name}
+                    >
+                      {svc.service_name}
+                    </span>
+
+                    {/* RIGHT: path + port */}
+                    <div className="flex items-center gap-2 shrink-0 min-w-0">
+                      {svc.path && (
+                        <span
+                          className="truncate text-[#8b949e] text-right max-w-[80px]"
+                          title={svc.path}
+                        >
+                          {svc.path}
+                        </span>
+                      )}
+
+                      <span className="font-mono opacity-80 flex items-center gap-1">
+                        <span>{svc.port}</span>
+                        <ExternalLink
+                          size={9}
+                          className={`shrink-0 ${url ? '' : 'opacity-0'}`}
+                        />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+
+              if (!url) return <div key={`${svc.port}-${svc.protocol}-${svc.service_name}-${idx}`}>{row}</div>
+
+              return (
+                <a
+                  key={`${svc.port}-${svc.protocol}-${svc.service_name}-${idx}`}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block hover:opacity-85 transition-opacity"
+                  title={url}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {row}
+                </a>
+              )
+            })}
+          </div>
+        </>
+      )}
+
       {/* Legacy hardware section — fallback for nodes not yet migrated */}
       {showLegacyHardware && (
         <>
@@ -173,11 +249,25 @@ export function BaseNode({ id, data, selected, icon: typeIcon, width, height }: 
         </>
       )}
 
-      {(BOTTOM_HANDLE_POSITIONS[data.bottom_handles ?? 1] ?? BOTTOM_HANDLE_POSITIONS[1]).map((leftPct, idx) => {
-        const sourceId = BOTTOM_HANDLE_IDS[idx]
-        const targetId = idx === 0 ? 'bottom-t' : `bottom-${idx + 1}-t`
+      {bottomHandlePositions(data.bottom_handles ?? 1).map((leftPct, idx) => {
+        const sourceId = bottomHandleId(idx)
+        const targetId = `${sourceId}-t`
         return (
           <span key={sourceId}>
+            {data.show_port_numbers && (
+              <span
+                className="absolute font-mono leading-none pointer-events-none select-none"
+                style={{
+                  left: `${leftPct}%`,
+                  bottom: 3,
+                  transform: 'translateX(-50%)',
+                  fontSize: 7,
+                  color: theme.colors.nodeSubtextColor,
+                }}
+              >
+                {idx + 1}
+              </span>
+            )}
             <Handle
               type="source"
               position={Position.Bottom}

@@ -44,11 +44,13 @@ vi.mock('@/utils/nodeColors', () => ({
 
 vi.mock('@/utils/nodeIcons', () => ({
   resolveNodeIcon: (_typeIcon: unknown) => _typeIcon,
+  isBrandIconKey: (k: string | undefined) => !!k && k.startsWith('brand:'),
 }))
 
 vi.mock('@/utils/maskIp', () => ({
   maskIp: (ip: string) => ip,
   splitIps: (ip: string) => ip ? ip.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
+  primaryIp: (ip: string) => ip ? ip.split(',')[0].trim() : '',
 }))
 
 vi.mock('@/utils/propertyIcons', () => ({
@@ -56,8 +58,12 @@ vi.mock('@/utils/propertyIcons', () => ({
 }))
 
 vi.mock('@/utils/handleUtils', () => ({
-  BOTTOM_HANDLE_IDS: ['bottom'],
-  BOTTOM_HANDLE_POSITIONS: { 1: [50] },
+  bottomHandleId: (idx: number) => idx === 0 ? 'bottom' : `bottom-${idx + 1}`,
+  bottomHandlePositions: (count: number) => {
+    const c = typeof count === 'number' && count > 0 ? Math.floor(count) : 1
+    return Array.from({ length: c }, (_, i) => ((i + 1) * 100) / (c + 1))
+  },
+  clampBottomHandles: (n: unknown) => typeof n === 'number' ? n : 1,
 }))
 
 beforeEach(() => { mockZoom = 1 })
@@ -165,6 +171,72 @@ describe('BaseNode — properties rendering', () => {
     expect(screen.getByText('My Server')).toBeDefined()
     expect(screen.getByText('192.168.1.10')).toBeDefined()
     expect(screen.getByText('OS')).toBeDefined()
+  })
+})
+
+describe('BaseNode — port numbers (issue #20)', () => {
+  it('renders a number above each bottom handle when show_port_numbers is on', () => {
+    renderBaseNode({ bottom_handles: 4, show_port_numbers: true })
+    expect(screen.getByText('1')).toBeDefined()
+    expect(screen.getByText('2')).toBeDefined()
+    expect(screen.getByText('3')).toBeDefined()
+    expect(screen.getByText('4')).toBeDefined()
+  })
+
+  it('does not render port numbers when show_port_numbers is off', () => {
+    renderBaseNode({ bottom_handles: 4 })
+    expect(screen.queryByText('1')).toBeNull()
+    expect(screen.queryByText('4')).toBeNull()
+  })
+
+  it('numbers match the handle count', () => {
+    renderBaseNode({ bottom_handles: 2, show_port_numbers: true })
+    expect(screen.getByText('1')).toBeDefined()
+    expect(screen.getByText('2')).toBeDefined()
+    expect(screen.queryByText('3')).toBeNull()
+  })
+})
+
+describe('BaseNode — services visibility toggle', () => {
+  it('does not render service toggle button on the node', () => {
+    renderBaseNode({ services: [{ service_name: 'nginx', port: 80, protocol: 'tcp' }] })
+    expect(screen.queryByTitle('Show services')).toBeNull()
+  })
+
+  it('renders service rows when services are toggled on', () => {
+    renderBaseNode({
+      ip: '192.168.1.10',
+      custom_colors: { show_services: true },
+      services: [
+        { service_name: 'nginx', port: 80, protocol: 'tcp' },
+        { service_name: 'ssh', port: 22, protocol: 'tcp' },
+      ],
+    })
+
+    expect(screen.getByText('nginx')).toBeDefined()
+    expect(screen.getByText('80')).toBeDefined()
+    expect(screen.getByText('ssh')).toBeDefined()
+  })
+
+  it('renders clickable service links for web services', () => {
+    renderBaseNode({
+      ip: '192.168.1.10',
+      custom_colors: { show_services: true },
+      services: [{ service_name: 'nginx', port: 80, protocol: 'tcp' }],
+    })
+
+    const link = screen.getByRole('link', { name: /nginx/i }) as HTMLAnchorElement
+    expect(link.getAttribute('href')).toBe('http://192.168.1.10:80')
+  })
+
+  it('keeps non-web services as non-clickable rows', () => {
+    renderBaseNode({
+      ip: '192.168.1.10',
+      custom_colors: { show_services: true },
+      services: [{ service_name: 'ssh', port: 22, protocol: 'tcp' }],
+    })
+
+    expect(screen.queryByRole('link', { name: /ssh/i })).toBeNull()
   })
 })
 

@@ -83,6 +83,28 @@ describe('NodeModal', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
+  // ── Delete confirm ────────────────────────────────────────────────────
+
+  it('deletes and closes when Delete confirm is accepted', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const { onClose, onSubmit } = renderModal({ title: 'Edit Node', initial: BASE })
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ _delete: true }))
+    expect(onClose).toHaveBeenCalledOnce()
+    confirmSpy.mockRestore()
+  })
+
+  // Regression: bare-if without braces used to call onClose() unconditionally,
+  // closing the modal even when the user cancelled the confirm dialog.
+  it('does not delete or close when Delete confirm is cancelled', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const { onClose, onSubmit } = renderModal({ title: 'Edit Node', initial: BASE })
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+    confirmSpy.mockRestore()
+  })
+
   // ── Label validation ──────────────────────────────────────────────────
 
   it('blocks submit and shows error when label is empty', () => {
@@ -251,53 +273,84 @@ describe('NodeModal', () => {
 
   it('toggles container_mode on click', () => {
     const { onSubmit } = renderModal({ initial: { ...BASE, type: 'proxmox', container_mode: true } })
-    fireEvent.click(screen.getByRole('switch'))
+    fireEvent.click(screen.getByRole('switch', { name: 'Container Mode' }))
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
     expect((onSubmit.mock.calls[0][0] as Partial<NodeData>).container_mode).toBe(false)
   })
 
-  // ── Parent container ──────────────────────────────────────────────────
+  // ── Show services toggle (modal-only) ───────────────────────────────
 
-  const parentContainerVisibleTypes = ['proxmox', 'vm', 'lxc', 'docker_host', 'isp', 'router', 'switch', 'server', 'nas', 'ap', 'printer', 'iot', 'camera', 'cpl', 'computer', 'generic'] as const
-  const parentContainerHiddenTypes = ['groupRect', 'group'] as const
+  it('shows Show Services toggle for regular nodes', () => {
+    renderModal({ initial: BASE })
+    expect(screen.getByText('Show Services')).toBeDefined()
+    expect(screen.getByRole('switch', { name: 'Show Services' })).toBeDefined()
+  })
 
-  it.each(parentContainerVisibleTypes)('shows Parent Container for %s type when options are provided', (type) => {
+  it('hides Show Services toggle for groupRect', () => {
+    renderModal({ initial: { ...BASE, type: 'groupRect' } })
+    expect(screen.queryByText('Show Services')).toBeNull()
+  })
+
+  it('submits custom_colors.show_services=true when toggled on', () => {
+    const { onSubmit } = renderModal({ initial: BASE })
+    fireEvent.click(screen.getByRole('switch', { name: 'Show Services' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    const data = onSubmit.mock.calls[0][0] as Partial<NodeData>
+    expect(data.custom_colors?.show_services).toBe(true)
+  })
+
+  it('keeps default colors hint visible when Show Services is toggled on', () => {
+    renderModal({ initial: BASE })
+    fireEvent.click(screen.getByRole('switch', { name: 'Show Services' }))
+    expect(screen.getByText(/Using default colors for/)).toBeDefined()
+  })
+
+  it('does not show Appearance reset when only Show Services is set', () => {
+    renderModal({ initial: BASE })
+    fireEvent.click(screen.getByRole('switch', { name: 'Show Services' }))
+    expect(screen.queryByText('Reset to defaults')).toBeNull()
+  })
+
+  // ── Parent Container selector ─────────────────────────────────────────
+
+  it('does not render Parent Container for non-child types', () => {
     renderModal({
-      initial: { ...BASE, type },
-      parentContainerNodes: [{ id: 'c1', label: 'Container 01' }],
+      initial: BASE,
+      parentCandidates: [{ id: 'p1', label: 'Proxmox', type: 'proxmox' }],
+    })
+    expect(screen.queryByText('Parent Container')).toBeNull()
+  })
+
+  it('does not render Parent Container when no valid candidates exist', () => {
+    renderModal({
+      initial: { ...BASE, type: 'docker_container' },
+      parentCandidates: [],
+    })
+    expect(screen.queryByText('Parent Container')).toBeNull()
+  })
+
+  it('renders Parent Container for docker_container when docker_host candidate exists', () => {
+    renderModal({
+      initial: { ...BASE, type: 'docker_container' },
+      parentCandidates: [{ id: 'dh1', label: 'Docker Host', type: 'docker_host' }],
     })
     expect(screen.getByText('Parent Container')).toBeDefined()
-    expect(screen.getByText('Container 01')).toBeDefined()
   })
 
-  it.each(parentContainerHiddenTypes)('hides Parent Container for %s type even when options are provided', (type) => {
-    renderModal({ initial: { ...BASE, type }, parentContainerNodes: [{ id: 'c1', label: 'Container 01' }] })
-    expect(screen.queryByText('Parent Container')).toBeNull()
-  })
-
-  it.each(parentContainerVisibleTypes)('hides Parent Container for %s type when no container options are available', (type) => {
-    renderModal({ initial: { ...BASE, type } })
-    expect(screen.queryByText('Parent Container')).toBeNull()
-  })
-
-  it('docker_container shows only docker_host parents', () => {
+  it('renders Parent Container for docker_container when only an LXC candidate exists', () => {
     renderModal({
       initial: { ...BASE, type: 'docker_container' },
-      parentContainerNodes: [
-        { id: 'h1', label: 'My Docker Host', nodeType: 'docker_host' },
-        { id: 'p1', label: 'My Proxmox', nodeType: 'proxmox' },
-      ],
+      parentCandidates: [{ id: 'lxc1', label: 'My LXC', type: 'lxc' }],
     })
-    expect(screen.getByText('My Docker Host')).toBeDefined()
-    expect(screen.queryByText('My Proxmox')).toBeNull()
+    expect(screen.getByText('Parent Container')).toBeDefined()
   })
 
-  it('docker_container hides Parent Container when no docker_host is available', () => {
+  it('renders Parent Container for lxc when proxmox candidate exists', () => {
     renderModal({
-      initial: { ...BASE, type: 'docker_container' },
-      parentContainerNodes: [{ id: 'p1', label: 'My Proxmox', nodeType: 'proxmox' }],
+      initial: { ...BASE, type: 'lxc' },
+      parentCandidates: [{ id: 'px1', label: 'PVE', type: 'proxmox' }],
     })
-    expect(screen.queryByText('Parent Container')).toBeNull()
+    expect(screen.getByText('Parent Container')).toBeDefined()
   })
 
   // ── Appearance ────────────────────────────────────────────────────────
@@ -345,18 +398,67 @@ describe('NodeModal', () => {
 
   it('defaults bottom_handles to 1', () => {
     renderModal({ initial: BASE })
-    expect(selects()[2].value).toBe('1')
+    const slider = screen.getByLabelText('Bottom connection points slider') as HTMLInputElement
+    expect(slider.value).toBe('1')
   })
 
   it('pre-fills bottom_handles from initial', () => {
     renderModal({ initial: { ...BASE, bottom_handles: 3 } })
-    expect(selects()[2].value).toBe('3')
+    const slider = screen.getByLabelText('Bottom connection points slider') as HTMLInputElement
+    expect(slider.value).toBe('3')
   })
 
   it('submits updated bottom_handles', () => {
     const { onSubmit } = renderModal({ initial: BASE })
-    fireEvent.change(selects()[2], { target: { value: '4' } })
+    const slider = screen.getByLabelText('Bottom connection points slider') as HTMLInputElement
+    fireEvent.change(slider, { target: { value: '12' } })
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
-    expect((onSubmit.mock.calls[0][0] as Partial<NodeData>).bottom_handles).toBe(4)
+    expect((onSubmit.mock.calls[0][0] as Partial<NodeData>).bottom_handles).toBe(12)
+  })
+
+  it('supports the full 1..64 range (issue #20)', () => {
+    const { onSubmit } = renderModal({ initial: BASE })
+    const slider = screen.getByLabelText('Bottom connection points slider') as HTMLInputElement
+    expect(slider.min).toBe('1')
+    expect(slider.max).toBe('64')
+    fireEvent.change(slider, { target: { value: '52' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect((onSubmit.mock.calls[0][0] as Partial<NodeData>).bottom_handles).toBe(52)
+  })
+
+  it('clamps pre-filled out-of-range values into [1,64]', () => {
+    renderModal({ initial: { ...BASE, bottom_handles: 9999 } })
+    const slider = screen.getByLabelText('Bottom connection points slider') as HTMLInputElement
+    expect(slider.value).toBe('64')
+  })
+
+  it('toggles show_port_numbers and submits it (issue #20)', () => {
+    const { onSubmit } = renderModal({ initial: BASE })
+    const toggle = screen.getByLabelText('Toggle port numbers')
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect((onSubmit.mock.calls[0][0] as Partial<NodeData>).show_port_numbers).toBe(true)
+  })
+
+  // ── Zigbee nodes ──────────────────────────────────────────────────────
+
+  const zigbeeTypes = ['zigbee_coordinator', 'zigbee_router', 'zigbee_enddevice'] as const
+
+  it.each(zigbeeTypes)('hides Check Method for %s type', (type) => {
+    renderModal({ initial: { ...BASE, type } })
+    expect(screen.queryByText('Check Method')).toBeNull()
+  })
+
+  it.each(zigbeeTypes)('hides Check Target for %s type', (type) => {
+    renderModal({ initial: { ...BASE, type } })
+    expect(screen.queryByText('Check Target')).toBeNull()
+  })
+
+  it.each(zigbeeTypes)('submits check_method=none for %s type', (type) => {
+    const { onSubmit } = renderModal({ initial: { ...BASE, type, label: 'Zigbee Node' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect((onSubmit.mock.calls[0][0] as Partial<NodeData>).check_method).toBe('none')
   })
 })

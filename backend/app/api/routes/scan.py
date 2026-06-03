@@ -11,10 +11,41 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.database import AsyncSessionLocal, get_db
-from app.db.models import Node, PendingDevice, ScanRun
+from app.db.models import Edge, Node, PendingDevice, PendingDeviceLink, ScanRun
 from app.schemas.nodes import NodeCreate
 from app.schemas.scan import PendingDeviceResponse, ScanRunResponse
 from app.services.scanner import request_cancel, run_scan
+from app.services.zigbee_service import build_zigbee_properties
+
+_ZIGBEE_TYPES = {"zigbee_coordinator", "zigbee_router", "zigbee_enddevice"}
+
+
+def build_mac_property(mac: str | None) -> list[dict[str, Any]]:
+    """Build a NodeProperty list carrying a device MAC address.
+
+    Shape matches the frontend ``NodeProperty`` type
+    (``{key, value, icon, visible}``). Hidden by default — the user opts in to
+    showing it on the canvas card from the right panel. Returns an empty list
+    when no MAC is known.
+    """
+    if not mac:
+        return []
+    return [{"key": "MAC", "value": mac, "icon": None, "visible": False}]
+
+
+def merge_mac_property(
+    props: list[dict[str, Any]] | None, mac: str | None
+) -> list[dict[str, Any]]:
+    """Append a MAC NodeProperty to ``props`` unless one is already present.
+
+    Preserves any user-supplied properties (and an existing MAC row's
+    visibility) untouched. Used on approve so the scanned MAC is not lost.
+    """
+    out = [dict(p) for p in (props or [])]
+    if not mac or any(p.get("key") == "MAC" for p in out):
+        return out
+    out.append({"key": "MAC", "value": mac, "icon": None, "visible": False})
+    return out
 
 
 class BulkActionRequest(BaseModel):
@@ -125,24 +156,41 @@ async def bulk_approve_devices(
     created_nodes: list[Node] = []
     for device in devices:
         device.status = "approved"
+        node_type = device.suggested_type or "generic"
+        is_zigbee = node_type in _ZIGBEE_TYPES
         node = Node(
-            label=device.hostname or device.ip,
-            type=device.suggested_type or "generic",
+            label=device.hostname or device.friendly_name or device.ip or "device",
+            type=node_type,
             ip=device.ip,
+            mac=device.mac,
             hostname=device.hostname,
-            status="unknown",
+            status="online" if is_zigbee else "unknown",
             services=device.services or [],
+            ieee_address=device.ieee_address,
+            properties=build_zigbee_properties(
+                device.ieee_address, device.vendor, device.model, device.lqi
+            ) if is_zigbee else build_mac_property(device.mac),
+            # Default to ping so the status checker actually polls the new node.
+            # Without this the scheduler skips it (check_method NULL → no check).
+            check_method="none" if is_zigbee else ("ping" if device.ip else None),
         )
         db.add(node)
         created_nodes.append(node)
     await db.flush()  # populates node.id from Python-side default before reading
     node_ids = [n.id for n in created_nodes]
     approved_device_ids = [d.id for d in devices]
+
+    all_edges: list[dict[str, str]] = []
+    for device in devices:
+        all_edges.extend(await _resolve_pending_links_for_ieee(db, device.ieee_address))
+
     await db.commit()
     return {
         "approved": len(node_ids),
         "node_ids": node_ids,
         "device_ids": approved_device_ids,
+        "edges_created": len(all_edges),
+        "edges": all_edges,
         "skipped": len(payload.device_ids) - len(node_ids),
     }
 
@@ -166,6 +214,41 @@ async def bulk_hide_devices(
     return {"hidden": len(devices), "skipped": len(payload.device_ids) - len(devices)}
 
 
+@router.post("/pending/{device_id}/restore", response_model=dict)
+async def restore_device(
+    device_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_user),
+) -> dict[str, Any]:
+    device = await db.get(PendingDevice, device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if device.status != "hidden":
+        raise HTTPException(status_code=409, detail="Device is not hidden")
+    device.status = "pending"
+    await db.commit()
+    return {"restored": True, "device_id": device_id}
+
+
+@router.post("/pending/bulk-restore", response_model=dict)
+async def bulk_restore_devices(
+    payload: BulkActionRequest,
+    db: AsyncSession = Depends(get_db),
+    _: str = Depends(get_current_user),
+) -> dict[str, Any]:
+    result = await db.execute(
+        select(PendingDevice).where(
+            PendingDevice.id.in_(payload.device_ids),
+            PendingDevice.status == "hidden",
+        )
+    )
+    devices = result.scalars().all()
+    for device in devices:
+        device.status = "pending"
+    await db.commit()
+    return {"restored": len(devices), "skipped": len(payload.device_ids) - len(devices)}
+
+
 @router.post("/pending/{device_id}/approve", response_model=dict)
 async def approve_device(
     device_id: str,
@@ -179,19 +262,119 @@ async def approve_device(
     if device.status != "pending":
         raise HTTPException(status_code=409, detail="Device already processed")
     device.status = "approved"
+    _is_zigbee = node_data.type in _ZIGBEE_TYPES
+    # Prefer the MAC discovered during the scan (stored on the pending device);
+    # fall back to whatever the approve payload carried.
+    _mac = device.mac or node_data.mac
     node = Node(
         label=node_data.label,
         type=node_data.type,
         ip=node_data.ip,
+        mac=_mac,
         hostname=node_data.hostname,
-        status=node_data.status,
+        status="online" if _is_zigbee else node_data.status,
         services=node_data.services or [],
+        ieee_address=device.ieee_address,
+        properties=build_zigbee_properties(
+            device.ieee_address, device.vendor, device.model, device.lqi
+        ) if _is_zigbee else merge_mac_property(node_data.properties, _mac),
+        check_method="none" if _is_zigbee else (node_data.check_method or ("ping" if node_data.ip else None)),
+        check_target=None if _is_zigbee else node_data.check_target,
     )
     db.add(node)
     await db.flush()
     node_id = node.id
+
+    edges = await _resolve_pending_links_for_ieee(db, device.ieee_address)
+
     await db.commit()
-    return {"approved": True, "node_id": node_id}
+    return {
+        "approved": True,
+        "node_id": node_id,
+        "edges_created": len(edges),
+        "edges": edges,
+    }
+
+
+async def _resolve_pending_links_for_ieee(
+    db: AsyncSession, ieee: str | None
+) -> list[dict[str, str]]:
+    """Materialize edges for any pending_device_links involving ``ieee``.
+
+    For each link where the other endpoint already exists as a canvas Node
+    (matched by ``Node.ieee_address``), create the Edge and drop the link
+    row. Links where the other endpoint is still pending are kept so they
+    can resolve when that endpoint is approved later.
+    """
+    if not ieee:
+        return []
+
+    links_q = await db.execute(
+        select(PendingDeviceLink).where(
+            (PendingDeviceLink.source_ieee == ieee)
+            | (PendingDeviceLink.target_ieee == ieee)
+        )
+    )
+    links = list(links_q.scalars().all())
+    if not links:
+        return []
+
+    # Map every relevant ieee → Node (single query).
+    other_ieees = {
+        link.target_ieee if link.source_ieee == ieee else link.source_ieee
+        for link in links
+    }
+    other_ieees.add(ieee)
+    nodes_q = await db.execute(
+        select(Node).where(Node.ieee_address.in_(other_ieees))
+    )
+    by_ieee = {n.ieee_address: n for n in nodes_q.scalars().all() if n.ieee_address}
+
+    self_node = by_ieee.get(ieee)
+    if self_node is None:
+        return []
+
+    # Pre-fetch existing edges between these node ids so we don't create dups
+    # if the user re-approves a device or had drawn the link manually.
+    candidate_node_ids = [n.id for n in by_ieee.values()]
+    existing_q = await db.execute(
+        select(Edge).where(
+            Edge.source.in_(candidate_node_ids),
+            Edge.target.in_(candidate_node_ids),
+        )
+    )
+    existing_pairs = {(e.source, e.target) for e in existing_q.scalars().all()}
+
+    created: list[dict[str, str]] = []
+    for link in links:
+        other_ieee = (
+            link.target_ieee if link.source_ieee == ieee else link.source_ieee
+        )
+        other_node = by_ieee.get(other_ieee)
+        if other_node is None:
+            continue
+        if link.source_ieee == ieee:
+            src_id, tgt_id = self_node.id, other_node.id
+        else:
+            src_id, tgt_id = other_node.id, self_node.id
+        # Skip if either direction already exists.
+        if (src_id, tgt_id) in existing_pairs or (tgt_id, src_id) in existing_pairs:
+            await db.delete(link)
+            continue
+        edge = Edge(
+            source=src_id,
+            target=tgt_id,
+            type="iot",
+            source_handle="bottom",
+            target_handle="top-t",
+        )
+        db.add(edge)
+        await db.flush()
+        existing_pairs.add((src_id, tgt_id))
+        created.append({"id": edge.id, "source": src_id, "target": tgt_id})
+        await db.delete(link)
+
+    return created
 
 
 @router.post("/pending/{device_id}/hide")

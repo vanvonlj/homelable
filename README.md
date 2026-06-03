@@ -1,12 +1,14 @@
 # Homelable
 
-Homelable is a self-hosted infrastructure visualization solution. It provides a network scanning feature to accelerate the identification of machines and services deployed on your local infrastructure.
+Homelable is a self-hosted infrastructure visualization solution. It provides a network/zigbee scanning feature to accelerate the identification of machines, devices and services deployed on your local infrastructure.
 
-Homelable also offers a healthcheck system (WIP) through multiple methods (ping/TCP, /health API, etc.) to get a global overview of online/offline services.
+Homelable also offers a healthcheck system through multiple methods (ping/TCP, /health API, etc.) to get a global overview of online/offline services.
 
 You can also select some pre-built design styles, or personalize each device in your diagram.
 
 If you just like the design, you can only run the frontend and export your design as PNG.
+
+If you are running  <img width="35" height="35" align="middle" alt="New_Home_Assistant_logo" src="https://github.com/user-attachments/assets/3bb17686-c706-40ce-a2d3-57e02378f37c" />  Homeassistant, check the [Homelable HA version](https://github.com/Pouzor/homelable-hacs) (via HACS)
 
 
 ---
@@ -16,8 +18,9 @@ If you just like the design, you can only run the frontend and export your desig
 <p align="center">
   <img src="docs/homelable1.png" alt="Homelable canvas overview" width="100%" />
   <img src="docs/homelable2.png" alt="Homelable node detail" width="100%" />
-  <img src="docs/homelable3.png" alt="Homelable sidebar and scan" width="48%" />
   <img src="docs/homelable4.png" alt="Homelable edit pannel" width="48%" />
+  <img width="48%" alt="Homelable Zigbee Network" src="https://github.com/user-attachments/assets/06caab68-6637-4dda-ab16-7e83f63d3972" />
+
 </p>
 
 ---
@@ -74,6 +77,38 @@ Homelable continuously monitors your nodes and displays their live status (onlin
 
 ---
 
+## Zigbee2MQTT Import
+
+Homelable can connect directly to your MQTT broker and import your Zigbee network topology from **Zigbee2MQTT**, placing each device on the canvas as a typed node.
+
+### Prerequisites
+
+- A running **MQTT broker** (e.g. Mosquitto) accessible from the Homelable host
+- **Zigbee2MQTT** connected to the broker with at least one device paired
+
+### Usage
+
+1. Click **Zigbee Import** in the left sidebar (below "Scan Network")
+2. Enter your broker host, port (default `1883`), optional credentials, and base topic (default `zigbee2mqtt`)
+3. Click **Test Connection** to verify reachability, then **Fetch Devices**
+4. Select the devices you want from the grouped list (Coordinator / Router / End Device)
+5. Click **Add N to Canvas** — devices are placed in a grid with IoT edges
+
+### Node Types
+
+| Type | Z2M Device | Icon |
+|------|-----------|------|
+| `zigbee_coordinator` | Coordinator | Network hub |
+| `zigbee_router` | Router (mains-powered) | Radio |
+| `zigbee_enddevice` | End Device (battery) | Antenna |
+
+Hierarchy is set automatically: coordinator → routers → end devices (`parent_id`).
+LQI (Link Quality Indicator) is stored as a node property.
+
+> **Full documentation:** [docs/zigbee-import.md](./docs/zigbee-import.md)
+
+---
+
 ## Live View (read-only public canvas)
 
 Live View lets you share a read-only snapshot of your canvas with anyone on your network — no login required. It is disabled by default.
@@ -99,7 +134,61 @@ The page shows your canvas in pan/zoom-only mode — no editing, no credentials 
 
 ---
 
-## MCP Server (AI Integration) (optionnal)
+## Gethomepage Widget (read-only stats)
+
+Homelable can expose a small JSON stats endpoint that [gethomepage](https://gethomepage.dev) consumes through its built-in `customapi` widget. Disabled by default.
+
+### Activation
+
+Add `HOMEPAGE_API_KEY` to your `.env`:
+
+`HOMEPAGE_API_KEY=your-secret-key`
+
+Restart the backend (`docker compose restart backend`).
+
+### Endpoint
+
+`GET /api/v1/stats/summary` — requires header `X-API-Key: your-secret-key`. Returns:
+
+```json
+{
+  "nodes": 12,
+  "online": 9,
+  "offline": 2,
+  "unknown": 1,
+  "pending_devices": 3,
+  "zigbee_devices": 5,
+  "last_scan_at": "2026-05-14T10:00:00+00:00"
+}
+```
+
+### gethomepage `services.yaml` snippet
+
+```yaml
+- Homelab:
+    - Homelable:
+        icon: mdi-lan
+        href: http://homelable.local:3000
+        widget:
+          type: customapi
+          url: http://homelable.local:8000/api/v1/stats/summary
+          method: GET
+          headers:
+            X-API-Key: your-secret-key
+          mappings:
+            - field: nodes           ; label: Nodes
+            - field: online          ; label: Online
+            - field: offline         ; label: Offline
+            - field: pending_devices ; label: Pending
+            - field: zigbee_devices  ; label: Zigbee
+            - field: last_scan_at    ; label: Last scan
+```
+
+The backend port (`8000`) must be reachable from your gethomepage container.
+
+---
+
+## MCP Server (AI Integration) (optional)
 
 Homelable can exposes a [Model Context Protocol](https://modelcontextprotocol.io) server so any MCP-compatible AI client (Claude Code, Claude Desktop, Open WebUI…) can read your homelab topology and act on it.
 
@@ -133,6 +222,12 @@ No plain-text passwords involved — `AUTH_PASSWORD_HASH` is only used for the w
 docker compose up -d mcp
 # MCP server is now listening on http://<your-homelab-ip>:8001
 ```
+
+> **Proxmox LXC / bare-metal (no Docker):** create the LXC via
+> [community-scripts/ProxmoxVE](https://github.com/community-scripts/ProxmoxVE) (or any
+> Debian/Ubuntu LXC), then inside it run `sudo bash scripts/lxc-mcp-install.sh`.
+> Installs a `homelable-mcp` systemd service, prompts for `MCP_API_KEY` / `MCP_SERVICE_KEY`
+> (auto-generated if you press Enter), and skips prompts if `mcp/.env` already exists.
 
 **3. Configure your AI client:**
 
